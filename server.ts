@@ -93,6 +93,7 @@ if (process.env.GEMINI_API_KEY) {
     },
   });
 }
+const llmModel = process.env.LLM_MODEL?.trim() || 'gemini-2.5-flash';
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -156,7 +157,7 @@ Kembalikan HANYA format JSON valid tanpa markdown atau backticks:
 }`;
 
     const response = await aiClient.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: llmModel,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -170,7 +171,7 @@ Kembalikan HANYA format JSON valid tanpa markdown atau backticks:
       fallback: false,
       parsed: parsedData,
       tokensUsed: 250,
-      model: 'gemini-3.8-flash',
+      model: llmModel,
     });
   } catch (err: any) {
     console.error('Gemini parse error:', err);
@@ -219,7 +220,7 @@ Format output JSON:
 }`;
 
     const response = await aiClient.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: llmModel,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -307,7 +308,7 @@ Kembalikan HANYA format JSON valid tanpa markdown backticks:
 }`;
 
     const response = await aiClient.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: llmModel,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -366,7 +367,7 @@ Format output JSON valid tanpa markdown backticks:
 }`;
 
     const response = await aiClient.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: llmModel,
       contents: [
         {
           inlineData: {
@@ -447,7 +448,7 @@ Kembalikan format JSON murni tanpa markdown:
 }`;
 
     const response = await aiClient.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: llmModel,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
