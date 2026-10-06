@@ -40,9 +40,19 @@ class TokenLoggerService {
       });
       return aiLogSchema.parse(res.data);
     } catch (err) {
-      if (err instanceof z.ZodError) throw new Error('Bentuk data server tidak sesuai.');
-      console.warn('Could not persist token log:', err);
-      throw apiError(err, 'Log AI gagal disimpan.');
+      // Logging must never break AI flows (e.g. vendor session cannot POST staff ai-logs).
+      if (err instanceof z.ZodError) console.warn('Bentuk data log AI tidak sesuai.');
+      else console.warn('Could not persist token log:', err);
+      return {
+        id: 'local',
+        sessionId: this.sessionId,
+        timestamp: new Date().toISOString(),
+        model: params.model || 'gemini-3.8-flash',
+        action: params.action,
+        promptPreview: params.promptPreview,
+        tokensUsed: params.tokensUsed,
+        estimatedCostUsd: 0,
+      };
     }
   }
 

@@ -49,6 +49,17 @@ func postVendor(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		byStaff := signedIn && caller.Kind == "staff"
+		if !byStaff {
+			ip := clientIP(r)
+			if wait := signInThrottle.wait("register", ip); wait > 0 {
+				w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
+				writeJSON(w, http.StatusTooManyRequests, map[string]string{
+					"error": fmt.Sprintf("Terlalu banyak pendaftaran dari jaringan ini. Coba lagi dalam %d menit.", int(wait.Minutes())+1),
+				})
+				return
+			}
+			signInThrottle.fail("register", ip)
+		}
 		doc, status, msg := createVendor(r.Context(), db, byStaff, in)
 		if msg != "" {
 			writeJSON(w, status, map[string]string{"error": msg})
@@ -215,6 +226,10 @@ func signInVendor(ctx context.Context, q dbx, identifier, password string) ([]by
 	if errors.Is(err, sql.ErrNoRows) || !sameSecret(stored, password) {
 		return nil, "", http.StatusUnauthorized, "Email, NPWP, atau password tidak cocok."
 	}
+	// Even a matching hash is rejected when the password is on the common list (seed leftovers).
+	if commonPasswords[strings.ToLower(password)] {
+		return nil, "", http.StatusUnauthorized, "Password ini sudah tidak diizinkan. Ganti password lewat staf Siloam."
+	}
 	var doc []byte
 	if err := q.QueryRowContext(ctx, `SELECT vendor_doc($1)`, id).Scan(&doc); err != nil {
 		log.Println(err)
@@ -258,6 +273,9 @@ func signInStaff(ctx context.Context, q dbx, identifier, password string) ([]byt
 	}
 	if errors.Is(err, sql.ErrNoRows) || !sameSecret(stored, password) {
 		return nil, "", http.StatusUnauthorized, "Username, email, atau password tidak cocok."
+	}
+	if commonPasswords[strings.ToLower(password)] {
+		return nil, "", http.StatusUnauthorized, "Password ini sudah tidak diizinkan. Ganti password lewat staf Siloam."
 	}
 	var doc []byte
 	if err := q.QueryRowContext(ctx, `SELECT staff_doc($1)`, id).Scan(&doc); err != nil {

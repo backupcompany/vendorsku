@@ -38,17 +38,43 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '8mb' }));
 
 const goPort = process.env.GO_PORT || '8080';
-function proxyGo(req: express.Request, res: express.Response) {
-  const body = req.method === 'GET' || req.method === 'HEAD' ? null : JSON.stringify(req.body ?? {});
+
+function clientIpOf(req: express.Request): string {
   const socketIp = req.socket.remoteAddress ?? '';
   const viaLocalProxy = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(socketIp);
   const realIp = req.headers['x-real-ip'];
-  // Only Caddy on this host may name the client; anyone else is identified by their socket.
-  const clientIp = viaLocalProxy && typeof realIp === 'string' && realIp ? realIp : socketIp;
+  return viaLocalProxy && typeof realIp === 'string' && realIp ? realIp : socketIp;
+}
+
+// ponytail: in-memory AI quota per actor+IP; Redis if multi-instance matters.
+const aiHits = new Map<string, number[]>();
+function allowAiHit(key: string, limit = 40, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const kept = (aiHits.get(key) ?? []).filter((t) => now - t < windowMs);
+  if (kept.length >= limit) {
+    aiHits.set(key, kept);
+    return false;
+  }
+  kept.push(now);
+  aiHits.set(key, kept);
+  return true;
+}
+
+function proxyGo(req: express.Request, res: express.Response) {
+  const body = req.method === 'GET' || req.method === 'HEAD' ? null : JSON.stringify(req.body ?? {});
+  const clientIp = clientIpOf(req);
+  const pick = (name: string) => {
+    const v = req.headers[name];
+    return typeof v === 'string' ? v : Array.isArray(v) ? v[0] : undefined;
+  };
   const headers: http.OutgoingHttpHeaders = {
-    ...req.headers,
     host: `127.0.0.1:${goPort}`,
+    'content-type': pick('content-type') || 'application/json',
+    accept: pick('accept') || 'application/json',
+    cookie: pick('cookie'),
+    'x-session-realm': pick('x-session-realm'),
     'x-forwarded-for': clientIp,
+    'x-forwarded-proto': pick('x-forwarded-proto') || (req.secure ? 'https' : 'http'),
   };
   if (body !== null) headers['content-length'] = Buffer.byteLength(body);
   const upstream = http.request(
@@ -106,8 +132,17 @@ app.use('/api/ai', (req, res, next) => {
           return;
         }
         try {
-          const data = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { kind?: string | null };
+          const data = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+            kind?: string | null;
+            actorId?: string | null;
+          };
           if (data.kind === 'vendor' || data.kind === 'staff') {
+            const key = `${data.kind}:${data.actorId ?? '?'}:${clientIpOf(req)}`;
+            if (!allowAiHit(key)) {
+              res.status(429).json({ error: 'Terlalu banyak permintaan AI. Coba lagi sebentar.' });
+              return;
+            }
+            res.locals.aiKind = data.kind;
             next();
             return;
           }
@@ -226,9 +261,15 @@ Kembalikan HANYA format JSON valid tanpa markdown atau backticks:
   }
 });
 
-// AI Tender Price Analysis API
+// AI Tender Price Analysis API (staff-only — contains competitor pricing).
 app.post('/api/ai/tender-analysis', async (req, res) => {
+  if (res.locals.aiKind !== 'staff') {
+    return res.status(403).json({ error: 'Akses ditolak.' });
+  }
   const { skuName, submissions } = req.body;
+  if (Array.isArray(submissions) && submissions.length > 50) {
+    return res.status(400).json({ error: 'Maksimal 50 penawaran per analisis.' });
+  }
 
   if (!aiClient) {
     return res.json({
@@ -377,8 +418,11 @@ Kembalikan HANYA format JSON valid tanpa markdown backticks:
 // AI PDF Price List Parser API
 app.post('/api/ai/parse-pdf-document', async (req, res) => {
   const { base64Data, fileName } = req.body;
-  if (!base64Data) {
+  if (!base64Data || typeof base64Data !== 'string') {
     return res.status(400).json({ error: 'base64Data is required' });
+  }
+  if (base64Data.length > 6_000_000) {
+    return res.status(413).json({ error: 'PDF terlalu besar (maks ~4.5 MB).' });
   }
 
   if (!aiClient) {
@@ -436,6 +480,9 @@ app.post('/api/ai/match-skus', async (req, res) => {
   const { items, candidateSkus } = req.body;
   if (!items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'items array is required' });
+  }
+  if (items.length > 200) {
+    return res.status(400).json({ error: 'Maksimal 200 item per permintaan match.' });
   }
 
   if (!aiClient) {

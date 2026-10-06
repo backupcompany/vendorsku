@@ -71,7 +71,7 @@ func main() {
 	mux.HandleFunc("POST /api/vendors/{id}/offers", guard(db, vendorSelf, postOffer(db)))
 	mux.HandleFunc("POST /api/vendors/{id}/offers/bulk", guard(db, vendorSelf, postOffers(db)))
 	mux.HandleFunc("DELETE /api/vendors/{id}/offers/{offerId}", guard(db, vendorSelf, deleteOffer(db)))
-	mux.HandleFunc("POST /api/staff/ai-logs", guard(db, anySession, postAiLog(db)))
+	mux.HandleFunc("POST /api/staff/ai-logs", staff(postAiLog(db)))
 
 	mux.HandleFunc("DELETE /api/vendors/{id}", staff(deleteVendor(db)))
 	mux.HandleFunc("GET /api/staff/vendors", staff(func(w http.ResponseWriter, r *http.Request) {
@@ -104,12 +104,6 @@ func main() {
 		) ORDER BY created_at), '[]'::jsonb) FROM tenders`))
 	}))
 	mux.HandleFunc("GET /api/staff/ai-logs", staff(listAiLogs(db)))
-	mux.HandleFunc("POST /api/ai/", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusNotImplemented, map[string]string{
-			"error": "AI routes still run on the Vite server. This Go service owns the database.",
-		})
-	})
-
 	host, port := os.Getenv("GO_HOST"), os.Getenv("GO_PORT")
 	if host == "" {
 		host = "127.0.0.1"

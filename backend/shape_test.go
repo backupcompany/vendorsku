@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,24 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+// Migration 015 nulls demo hashes; tests that need password sign-in restore a local-only secret.
+const testSeedPassword = "TestSeed9x!"
+
+func unlockSeedPasswords(t *testing.T, db *sql.DB) {
+	t.Helper()
+	hash, err := bcrypt.GenerateFromPassword([]byte(testSeedPassword), 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := string(hash)
+	if _, err := db.Exec(`UPDATE vendors SET password_hash = $1, password_created_at = now() WHERE id = 'vnd-001'`, h); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE admin_users SET password_hash = $1 WHERE id = 'adm-001'`, h); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestVendorTreeHidesOtherVendor(t *testing.T) {
 	db, err := openDB()
@@ -114,7 +133,8 @@ func TestSignInFormKeys(t *testing.T) {
 	if err := migrate(db); err != nil {
 		t.Fatal(err)
 	}
-	seedBody, _, status, msg := signInVendor(t.Context(), db, "01.234.567.8-012.000", "vendor123")
+	unlockSeedPasswords(t, db)
+	seedBody, _, status, msg := signInVendor(t.Context(), db, "01.234.567.8-012.000", testSeedPassword)
 	if status != 200 || msg != "" || !strings.Contains(string(seedBody), "PT Medika Farma Pratama") {
 		t.Fatalf("demo npwp sign-in: %d %s %s", status, msg, seedBody)
 	}
@@ -178,7 +198,7 @@ func TestSignInFormKeys(t *testing.T) {
 	if len(keys) != 2 || keys[0].(map[string]any)["kind"] != "pic_email" || keys[1].(map[string]any)["value"] != "091234567890000" {
 		t.Fatalf("signIn with npwp = %#v", keys)
 	}
-	staffBody, _, status, msg := signInStaff(t.Context(), db, "admin", "admin123")
+	staffBody, _, status, msg := signInStaff(t.Context(), db, "admin", testSeedPassword)
 	if status != 200 || !strings.Contains(string(staffBody), "heldra.parningotan@siloamhospitals.com") {
 		t.Fatalf("staff sign-in: %d %s %s", status, msg, staffBody)
 	}
@@ -202,7 +222,7 @@ func TestSignInFormKeys(t *testing.T) {
 	if _, _, status, msg = signInVendor(t.Context(), tx, "a@", "vendor123"); status != 400 {
 		t.Fatalf("bad email status %d %s", status, msg)
 	}
-	staffBody, _, status, msg = signInStaff(t.Context(), db, "Heldra.Parningotan@SiloamHospitals.com", "admin123")
+	staffBody, _, status, msg = signInStaff(t.Context(), db, "Heldra.Parningotan@SiloamHospitals.com", testSeedPassword)
 	if status != 200 || !strings.Contains(string(staffBody), `"kind":"email"`) || !strings.Contains(string(staffBody), `"value":"heldra.parningotan@siloamhospitals.com"`) {
 		t.Fatalf("staff email sign-in: %d %s %s", status, msg, staffBody)
 	}
@@ -546,6 +566,7 @@ func TestSignInThrottleAndCookie(t *testing.T) {
 	if err := migrate(db); err != nil {
 		t.Fatal(err)
 	}
+	unlockSeedPasswords(t, db)
 	signInThrottle.clear("staff:admin")
 	signInThrottle.clear("ip:192.0.2.9")
 	db.Exec(`DELETE FROM otp_challenges WHERE actor_id = 'adm-001'`)
@@ -560,7 +581,7 @@ func TestSignInThrottleAndCookie(t *testing.T) {
 		h(rec, req)
 		return rec
 	}
-	rec := try("admin123")
+	rec := try(testSeedPassword)
 	if rec.Code != 200 || len(rec.Result().Cookies()) != 0 || !strings.Contains(rec.Body.String(), `"otpRequired":true`) {
 		t.Fatalf("password alone must not sign in: %d %s", rec.Code, rec.Body)
 	}
@@ -569,7 +590,7 @@ func TestSignInThrottleAndCookie(t *testing.T) {
 			t.Fatalf("attempt %d got %d", i, rec.Code)
 		}
 	}
-	if rec = try("admin123"); rec.Code != 429 || rec.Header().Get("Retry-After") == "" {
+	if rec = try(testSeedPassword); rec.Code != 429 || rec.Header().Get("Retry-After") == "" {
 		t.Fatalf("locked account got %d", rec.Code)
 	}
 	signInThrottle.clear("staff:admin")
@@ -584,6 +605,7 @@ func TestEmailOTP(t *testing.T) {
 	if err := migrate(db); err != nil {
 		t.Fatal(err)
 	}
+	unlockSeedPasswords(t, db)
 	reset := func() {
 		db.Exec(`DELETE FROM otp_challenges WHERE actor_id = 'adm-001'`)
 		signInThrottle.clear("staff:admin")
@@ -597,7 +619,7 @@ func TestEmailOTP(t *testing.T) {
 	codeIn := regexp.MustCompile(`>(\d{6})<`)
 
 	signIn := func() (challenge, code string) {
-		req := httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":"admin","password":"admin123"}`))
+		req := httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":"admin","password":"`+testSeedPassword+`"}`))
 		rec := httptest.NewRecorder()
 		postSignInAs(db, "staff", signInStaff)(rec, req)
 		var out struct {
@@ -628,7 +650,7 @@ func TestEmailOTP(t *testing.T) {
 	}
 
 	first, firstCode := signIn()
-	req := httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":"admin","password":"admin123"}`))
+	req := httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":"admin","password":"`+testSeedPassword+`"}`))
 	rec := httptest.NewRecorder()
 	postSignInAs(db, "staff", signInStaff)(rec, req)
 	if rec.Code != 429 {
@@ -666,7 +688,7 @@ func TestEmailOTP(t *testing.T) {
 	if rec := verify(third, code); rec.Code != 410 {
 		t.Fatalf("burned challenge accepted right code: %d", rec.Code)
 	}
-	req = httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":"admin","password":"admin123"}`))
+	req = httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":"admin","password":"`+testSeedPassword+`"}`))
 	rec = httptest.NewRecorder()
 	postSignInAs(db, "staff", signInStaff)(rec, req)
 	if rec.Code != 429 {

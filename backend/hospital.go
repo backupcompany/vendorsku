@@ -17,9 +17,19 @@ const hospitalObjectSQL = `jsonb_build_object(
 	'createdAt', created_at, 'updatedAt', updated_at
 )`
 
+// Public list omits phone/address/bedCapacity — those stay staff-only.
+const hospitalPublicSQL = `jsonb_build_object(
+	'id', id, 'code', code, 'name', name, 'city', city, 'province', province,
+	'island', island, 'type', type, 'isActive', is_active
+)`
+
 func listHospitals(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeQuery(w, db.QueryRowContext(r.Context(), `SELECT coalesce(jsonb_agg(`+hospitalObjectSQL+` ORDER BY name), '[]'::jsonb) FROM hospitals`))
+		cols := hospitalPublicSQL
+		if a, ok, err := sessionActor(r, db); err == nil && ok && a.Kind == "staff" {
+			cols = hospitalObjectSQL
+		}
+		writeQuery(w, db.QueryRowContext(r.Context(), `SELECT coalesce(jsonb_agg(`+cols+` ORDER BY name), '[]'::jsonb) FROM hospitals`))
 	}
 }
 
