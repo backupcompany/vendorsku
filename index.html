@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      try {
+        var theme = localStorage.getItem('siloam_theme');
+        var dark = theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
+    <title>Siloam Hospitals - Vendor SKU Price List & Mapping Portal</title>
+    <meta name="description" content="Portal mandiri pendaftaran dan pemetaan price list SKU vendor terhadap master taksonomi 4-level dan format komoditas Siloam Hospitals." />
+    <meta property="og:title" content="Siloam Hospitals - Vendor SKU Price List & Mapping Portal" />
+    <meta property="og:description" content="Portal mandiri pendaftaran dan pemetaan price list SKU vendor terhadap master taksonomi 4-level dan format komoditas Siloam Hospitals." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Raleway:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white dark:bg-slate-950 dark:text-slate-100">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

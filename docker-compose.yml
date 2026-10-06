@@ -1,0 +1,21 @@
+# .env on the server holds DATABASE_URL, GEMINI_API_KEY, PORT (web) and GO_PORT (api).
+# Host networking reaches postgres-core on 127.0.0.1; both services bind loopback only, Caddy fronts them.
+services:
+  api:
+    build: { context: ., target: api }
+    container_name: vendorsku-api
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    environment:
+      GO_HOST: 127.0.0.1
+
+  web:
+    build: { context: ., target: web }
+    container_name: vendorsku-web
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    environment:
+      HOST: 127.0.0.1
+    depends_on: [api]
