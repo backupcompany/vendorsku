@@ -119,7 +119,7 @@ func main() {
 	}
 	srv := &http.Server{
 		Addr:              net.JoinHostPort(host, port),
-		Handler:           withGzip(mux),
+		Handler:           withGzip(withSecurityHeaders(mux)),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      2 * time.Minute,
@@ -247,6 +247,16 @@ func (g *gzipWriter) Write(b []byte) (int, error) {
 		g.zw = gzip.NewWriter(g.ResponseWriter)
 	}
 	return g.zw.Write(b)
+}
+
+func withSecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // The vendor catalog is several MB of JSON; gzip cuts it roughly tenfold.

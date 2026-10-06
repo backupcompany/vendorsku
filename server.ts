@@ -13,7 +13,29 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(express.json({ limit: '10mb' }));
+// --- Strict edge middleware (BFF behind Caddy; still enforce here) ---
+app.disable('x-powered-by');
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+  if (_req.secure || _req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+app.use((req, res, next) => {
+  const allowed = ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'];
+  if (!allowed.includes(req.method)) {
+    res.status(405).json({ error: 'Method tidak diizinkan.' });
+    return;
+  }
+  next();
+});
+
+app.use(express.json({ limit: '8mb' }));
 
 const goPort = process.env.GO_PORT || '8080';
 function proxyGo(req: express.Request, res: express.Response) {
@@ -52,16 +74,17 @@ function proxyGo(req: express.Request, res: express.Response) {
   upstream.end();
 }
 
-app.use('/api/sign-in', proxyGo);
-app.use('/api/vendors', proxyGo);
-app.use('/api/staff', proxyGo);
-app.use('/api/hospitals', proxyGo);
-app.use('/api/skus', proxyGo);
-app.use('/api/options', proxyGo);
-app.use('/api/session', proxyGo);
-app.use('/api/sign-out', proxyGo);
+// Health on BFF; AI gated below; all other /api/* proxied to Go (incl. /api/password).
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    aiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    timestamp: new Date().toISOString(),
+  });
+});
 
-// Gemini calls cost money, so they need a live session checked by the Go API.
+// Gemini costs money: require a real signed-in session (kind must be vendor|staff).
+// Note: GET /api/session returns 200 with kind:null when logged out — do not trust status alone.
 app.use('/api/ai', (req, res, next) => {
   const check = http.request(
     {
@@ -69,16 +92,43 @@ app.use('/api/ai', (req, res, next) => {
       port: goPort,
       path: '/api/session',
       method: 'GET',
-      headers: { cookie: req.headers.cookie ?? '', 'x-session-realm': String(req.headers['x-session-realm'] ?? '') },
+      headers: {
+        cookie: req.headers.cookie ?? '',
+        'x-session-realm': String(req.headers['x-session-realm'] ?? ''),
+      },
     },
     (goRes) => {
-      goRes.resume();
-      if (goRes.statusCode === 200) next();
-      else res.status(401).json({ error: 'Sesi berakhir. Silakan masuk lagi.' });
+      const chunks: Buffer[] = [];
+      goRes.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+      goRes.on('end', () => {
+        if (goRes.statusCode !== 200) {
+          res.status(401).json({ error: 'Sesi berakhir. Silakan masuk lagi.' });
+          return;
+        }
+        try {
+          const data = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { kind?: string | null };
+          if (data.kind === 'vendor' || data.kind === 'staff') {
+            next();
+            return;
+          }
+        } catch {
+          /* fall through */
+        }
+        res.status(401).json({ error: 'Sesi berakhir. Silakan masuk lagi.' });
+      });
     },
   );
   check.on('error', () => res.status(502).json({ error: 'Backend belum jalan.' }));
   check.end();
+});
+
+app.use('/api', (req, res, next) => {
+  // Mounted at /api, so path is relative (e.g. /password, /ai/...).
+  if (req.path === '/health' || req.path.startsWith('/ai')) {
+    next();
+    return;
+  }
+  proxyGo(req, res);
 });
 
 // Server-side Gemini initialization if key exists
@@ -94,15 +144,6 @@ if (process.env.GEMINI_API_KEY) {
   });
 }
 const llmModel = process.env.LLM_MODEL?.trim() || 'gemini-2.5-flash';
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    aiConfigured: Boolean(process.env.GEMINI_API_KEY),
-    timestamp: new Date().toISOString(),
-  });
-});
 
 // AI SKU Parser & Taxonomy Matcher API
 app.post('/api/ai/parse-sku', async (req, res) => {
