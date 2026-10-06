@@ -5,6 +5,7 @@ import { vendorService } from '../services/vendorService';
 import { skuService, cleanCommodityName } from '../../sku/services/skuService';
 import { Button } from '../../../core/ui/Button';
 import { AiDocumentPriceListUploaderModal } from './AiDocumentPriceListUploaderModal';
+import { ExcelTemplateExportImport } from './ExcelTemplateExportImport';
 import {
   Download,
   Save,
@@ -1358,6 +1359,13 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
                   <Download className="h-3.5 w-3.5 text-emerald-600" />
                   <span>Export Template Excel</span>
                 </button>
+
+                <ExcelTemplateExportImport
+                  masterSkus={allMasterSkus ?? masterSkus}
+                  vendor={vendor}
+                  onBulkSuccess={handleBulkSaveFromAiUpload}
+                  activeCategory={vendor.businessScope?.level1 || 'ALL'}
+                />
               </div>
 
               <div className="text-center pt-1 mt-1 border-t border-slate-200/60 dark:border-slate-800/60">
