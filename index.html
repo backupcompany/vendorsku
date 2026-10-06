@@ -5,17 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script>
       try {
-        var theme = localStorage.getItem('siloam_theme');
-        var dark = theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-        if (dark) document.documentElement.classList.add('dark');
+        // Default light; only force dark if the user explicitly chose it.
+        if (localStorage.getItem('siloam_theme') === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
       } catch (e) {}
     </script>
-    <title>Siloam Hospitals - Vendor SKU Price List & Mapping Portal</title>
-    <meta name="description" content="Portal mandiri pendaftaran dan pemetaan price list SKU vendor terhadap master taksonomi 4-level dan format komoditas Siloam Hospitals." />
-    <meta property="og:title" content="Siloam Hospitals - Vendor SKU Price List & Mapping Portal" />
-    <meta property="og:description" content="Portal mandiri pendaftaran dan pemetaan price list SKU vendor terhadap master taksonomi 4-level dan format komoditas Siloam Hospitals." />
+    <title>Siloam Hospitals — Portal Mitra Rekanan</title>
+    <meta name="description" content="Portal mandiri Siloam Hospitals untuk daftar calon rekanan, unggah price list SKU, dan mapping komoditas ke katalog pusat." />
+    <meta name="theme-color" content="#0B2361" />
+    <link rel="canonical" href="https://vendorsku.cgp-ai.com/" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Open Graph (WhatsApp / LinkedIn / Facebook) -->
+    <meta property="og:site_name" content="Siloam Hospitals" />
+    <meta property="og:locale" content="id_ID" />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://vendorsku.cgp-ai.com/" />
+    <meta property="og:title" content="Portal Mitra Rekanan Siloam Hospitals" />
+    <meta property="og:description" content="Daftar sebagai calon rekanan, unggah price list, dan mapping SKU ke katalog Siloam — mandiri & terintegrasi e-procurement." />
+    <meta property="og:image" content="https://vendorsku.cgp-ai.com/og-image.jpg" />
+    <meta property="og:image:secure_url" content="https://vendorsku.cgp-ai.com/og-image.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Portal Mitra Rekanan Siloam Hospitals — SKU Price List & Mapping" />
+
+    <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Portal Mitra Rekanan Siloam Hospitals" />
+    <meta name="twitter:description" content="Daftar sebagai calon rekanan, unggah price list, dan mapping SKU ke katalog Siloam." />
+    <meta name="twitter:image" content="https://vendorsku.cgp-ai.com/og-image.jpg" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Raleway:wght@500;600;700;800;900&display=swap" rel="stylesheet">
@@ -25,4 +47,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
