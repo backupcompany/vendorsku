@@ -54,27 +54,22 @@ func postVendor(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, status, map[string]string{"error": msg})
 			return
 		}
-		out := map[string]any{"vendor": json.RawMessage(doc)}
-		if !byStaff {
-			var id struct {
-				ID string `json:"id"`
-			}
-			json.Unmarshal(doc, &id)
-			token, err := issueSession(r.Context(), db, "vendor", id.ID)
-			if err != nil {
-				log.Println(err)
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal membuat sesi."})
-				return
-			}
-			setSessionCookie(w, r, "vendor", token)
+		if byStaff {
+			writeJSON(w, status, map[string]any{"vendor": json.RawMessage(doc)})
+			return
 		}
-		writeJSON(w, status, out)
+		var id struct {
+			ID string `json:"id"`
+		}
+		json.Unmarshal(doc, &id)
+		startOTP(w, r, db, "vendor", id.ID, status, map[string]any{"vendor": json.RawMessage(doc)},
+			"Akun sudah dibuat, tetapi kode verifikasi gagal dikirim. Masuk dengan email dan password untuk meminta kode baru.")
 	}
 }
 
 type signInFn func(ctx context.Context, q dbx, identifier, password string) ([]byte, string, int, string)
 
-// postSignInAs throttles by account and client IP before bcrypt runs, and resets the account count on success.
+// postSignInAs throttles by account and client IP before bcrypt runs; a correct password only earns an email code.
 func postSignInAs(db *sql.DB, kind string, signIn signInFn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
@@ -92,7 +87,7 @@ func postSignInAs(db *sql.DB, kind string, signIn signInFn) http.HandlerFunc {
 			})
 			return
 		}
-		body, token, status, msg := signIn(r.Context(), db, in.Identifier, in.Password)
+		_, actorID, status, msg := signIn(r.Context(), db, in.Identifier, in.Password)
 		if status == http.StatusUnauthorized {
 			signInThrottle.fail(account, ip)
 		}
@@ -101,10 +96,7 @@ func postSignInAs(db *sql.DB, kind string, signIn signInFn) http.HandlerFunc {
 			return
 		}
 		signInThrottle.clear(account)
-		setSessionCookie(w, r, kind, token)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(status)
-		w.Write(body)
+		startOTP(w, r, db, kind, actorID, http.StatusOK, nil, "Gagal mengirim kode verifikasi ke email. Coba lagi.")
 	}
 }
 
@@ -232,11 +224,6 @@ func signInVendor(ctx context.Context, q dbx, identifier, password string) ([]by
 		log.Println("vendor sign-in key drifted", id, kind)
 		return nil, "", http.StatusInternalServerError, "Gagal memeriksa form masuk."
 	}
-	token, err := issueSession(ctx, q, "vendor", id)
-	if err != nil {
-		log.Println(err)
-		return nil, "", http.StatusInternalServerError, "Gagal membuat sesi."
-	}
 	body, err := json.Marshal(map[string]any{
 		"matched": map[string]string{"kind": kind, "value": value},
 		"vendor":  json.RawMessage(doc),
@@ -244,7 +231,7 @@ func signInVendor(ctx context.Context, q dbx, identifier, password string) ([]by
 	if err != nil {
 		return nil, "", http.StatusInternalServerError, "Gagal memeriksa form masuk."
 	}
-	return body, token, http.StatusOK, ""
+	return body, id, http.StatusOK, ""
 }
 
 func signInStaff(ctx context.Context, q dbx, identifier, password string) ([]byte, string, int, string) {
@@ -281,11 +268,6 @@ func signInStaff(ctx context.Context, q dbx, identifier, password string) ([]byt
 		log.Println("staff sign-in key drifted", id, kind)
 		return nil, "", http.StatusInternalServerError, "Gagal memeriksa form masuk."
 	}
-	token, err := issueSession(ctx, q, "staff", id)
-	if err != nil {
-		log.Println(err)
-		return nil, "", http.StatusInternalServerError, "Gagal membuat sesi."
-	}
 	body, err := json.Marshal(map[string]any{
 		"matched": map[string]string{"kind": kind, "value": value},
 		"staff":   json.RawMessage(doc),
@@ -293,7 +275,7 @@ func signInStaff(ctx context.Context, q dbx, identifier, password string) ([]byt
 	if err != nil {
 		return nil, "", http.StatusInternalServerError, "Gagal memeriksa form masuk."
 	}
-	return body, token, http.StatusOK, ""
+	return body, id, http.StatusOK, ""
 }
 
 func validEmail(email string) bool {

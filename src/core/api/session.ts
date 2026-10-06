@@ -44,11 +44,14 @@ const staffDocSchema = z.object({
   signIn: z.array(signInKeySchema),
 });
 
-const signInResponseSchema = z.object({
-  matched: signInKeySchema,
-  vendor: vendorDocSchema.optional(),
-  staff: staffDocSchema.optional(),
+const otpChallengeSchema = z.object({
+  otpRequired: z.literal(true),
+  challenge: z.string().min(1),
+  email: z.string(),
+  expiresIn: z.number(),
+  resendIn: z.number(),
 });
+export type OtpChallenge = z.infer<typeof otpChallengeSchema>;
 
 export type VendorDoc = z.infer<typeof vendorDocSchema>;
 
@@ -87,26 +90,44 @@ function staffFromDoc(doc: z.infer<typeof staffDocSchema>): AdminUser {
   };
 }
 
-async function post(path: string, body: unknown) {
+async function post<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
   try {
     const res = await http.post(path, body);
-    return signInResponseSchema.parse(res.data);
+    return schema.parse(res.data);
   } catch (err) {
     if (err instanceof z.ZodError) throw new Error('Bentuk data server tidak sesuai.');
     throw apiError(err, 'Gagal menghubungi server.');
   }
 }
 
-export async function signInVendor(identifier: string, password: string): Promise<VendorProfile> {
-  const data = await post('/api/sign-in', { identifier, password });
-  if (!data.vendor) throw new Error('Akun rekanan tidak dikembalikan server.');
-  return vendorFromDoc(data.vendor);
+/** A correct password only starts sign-in; the session exists after verifySignInCode. */
+export function startSignIn(realm: SessionRealm, identifier: string, password: string): Promise<OtpChallenge> {
+  return post(realm === 'staff' ? '/api/staff/sign-in' : '/api/sign-in', { identifier, password }, otpChallengeSchema);
 }
 
-export async function signInStaff(identifier: string, password: string): Promise<AdminUser> {
-  const data = await post('/api/staff/sign-in', { identifier, password });
-  if (!data.staff) throw new Error('Akun staf tidak dikembalikan server.');
-  return staffFromDoc(data.staff);
+export type VerifiedAccount = { kind: 'vendor'; vendor: VendorProfile } | { kind: 'staff'; staff: AdminUser };
+
+export async function verifySignInCode(challenge: string, code: string): Promise<VerifiedAccount> {
+  const data = await post(
+    '/api/sign-in/verify',
+    { challenge, code },
+    z.object({ kind: z.enum(['vendor', 'staff']), vendor: vendorDocSchema.optional(), staff: staffDocSchema.optional() })
+  );
+  if (data.kind === 'vendor' && data.vendor) return { kind: 'vendor', vendor: vendorFromDoc(data.vendor) };
+  if (data.kind === 'staff' && data.staff) return { kind: 'staff', staff: staffFromDoc(data.staff) };
+  throw new Error('Akun tidak dikembalikan server.');
+}
+
+/** Self-registration: the account is created, then the PIC email must confirm a code before any session. */
+export async function signUpVendor(form: {
+  companyName: string;
+  email: string;
+  phone: string;
+  authorizedPerson?: string;
+  npwp?: string;
+  password: string;
+}): Promise<OtpChallenge> {
+  return post('/api/vendors', form, otpChallengeSchema);
 }
 
 /** Reads the cookie session after a reload; null when the realm is signed out. */

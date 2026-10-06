@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { VendorProfile, BusinessScope } from '../core/types';
 import { SiloamLogo } from '../core/ui/SiloamLogo';
-import { authService } from '../core/services/auth/authService';
-import { patchVendor } from '../core/api/session';
+import { OtpCodeForm } from '../core/ui/OtpCodeForm';
+import { OtpChallenge, VerifiedAccount, patchVendor, signUpVendor, startSignIn } from '../core/api/session';
 import { fetchSkuTaxonomy, searchSkuNames, SkuHit, SkuTaxonomy } from '../core/api/catalog';
 import { useActiveHospitalCount, useOptions } from '../core/api/options';
 import {
@@ -41,6 +41,7 @@ import { useUrlTab } from '../core/router/useAppRouter';
 import { passwordProblem, passwordRules, phoneProblem, vendorIdentifierProblem } from '../core/auth/signInRules';
 import { PasswordChecklist } from '../core/ui/PasswordChecklist';
 import receptionistPhoto from '../assets/images/siloam_receptionist_left_1790751440935.jpg';
+import ambassadorPortrait from '../assets/images/siloam_hospital_receptionist_1790727126147.jpg';
 
 const LANDING_TABS = ['login', 'new_vendor'] as const;
 
@@ -83,7 +84,8 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
   const [activeTab, setActiveTab] = useUrlTab('akses', LANDING_TABS);
 
   // Step tracker
-  const [step, setStep] = useState<'profile' | 'product_category'>('profile');
+  const [step, setStep] = useState<'profile' | 'verify' | 'product_category'>('profile');
+  const [otp, setOtp] = useState<{ challenge: OtpChallenge; identifier: string; password: string; fromSignUp: boolean } | null>(null);
 
   // VENDOR LOGIN FIELDS
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -197,13 +199,10 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
     }
     setIsLoggingIn(true);
     try {
-      const vendor = await authService.vendorLogin(loginIdentifier.trim(), loginPassword);
-      setCurrentWorkingVendor(vendor);
-      if (vendor.businessScope && vendor.businessScope.level1) {
-        onLoginSuccess(vendor, false, vendor.businessScope);
-      } else {
-        setStep('product_category');
-      }
+      const identifier = loginIdentifier.trim();
+      const challenge = await startSignIn('vendor', identifier, loginPassword);
+      setOtp({ challenge, identifier, password: loginPassword, fromSignUp: false });
+      setStep('verify');
     } catch (err: any) {
       setFormError(err.message || 'Gagal login rekanan. Periksa Email/NPWP dan password.');
     } finally {
@@ -243,21 +242,45 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
     }
     setIsLoggingIn(true);
     try {
-      const vendor = await authService.registerVendor({
+      const identifier = email.trim().toLowerCase();
+      const challenge = await signUpVendor({
         companyName: companyName.trim(),
-        email: email.trim().toLowerCase(),
+        email: identifier,
         phone: phone.trim(),
         authorizedPerson: authorizedPerson.trim(),
         npwp: npwp.trim(),
         password: newVendorPassword,
       });
-      setCurrentWorkingVendor(vendor);
-      setStep('product_category');
+      setOtp({ challenge, identifier, password: newVendorPassword, fromSignUp: true });
+      setStep('verify');
     } catch (err: any) {
       setFormError(err.message || 'Gagal menyimpan data rekanan.');
     } finally {
       setIsLoggingIn(false);
     }
+  };
+
+  const handleCodeVerified = (account: VerifiedAccount) => {
+    if (account.kind !== 'vendor') return;
+    const vendor = account.vendor;
+    setOtp(null);
+    setCurrentWorkingVendor(vendor);
+    if (vendor.businessScope?.level1) {
+      onLoginSuccess(vendor, false, vendor.businessScope);
+    } else {
+      setStep('product_category');
+    }
+  };
+
+  const handleCancelCode = () => {
+    // A signed-up account already exists, so returning to the sign-up form would only hit "email taken".
+    if (otp?.fromSignUp) {
+      setLoginIdentifier(otp.identifier);
+      setActiveTab('login');
+    }
+    setOtp(null);
+    setLoginPassword('');
+    setStep('profile');
   };
 
   const handleFinishAndEnterMatrix = async () => {
@@ -300,15 +323,14 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
         <img
           src={receptionistPhoto}
           alt="Siloam Hospitals Welcoming Healthcare Ambassador"
-          className="w-full h-full object-cover object-left lg:object-[15%_center] filter brightness-[0.98] dark:brightness-[0.60] contrast-[1.03]"
+          className="w-full h-full object-cover object-left scale-105 blur-[3px]"
           referrerPolicy="no-referrer"
         />
 
         {/* Sophisticated Dual Gradient Overlay:
             - Left: clear subtle hospital warmth allowing the welcoming woman to stand out
             - Right: smooth transition to clean crisp backdrop for the form card */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 lg:hidden" />
-        <div className="hidden lg:block absolute inset-0 bg-gradient-to-r from-black/55 via-[#F4F7FB]/75 to-[#F4F7FB] dark:from-[#071536]/80 dark:via-[#071536]/90 dark:to-[#071536]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#F4F7FB]/60 via-[#F4F7FB]/80 to-[#F4F7FB]/95 dark:from-[#071536]/70 dark:via-[#071536]/85 dark:to-[#071536]/95" />
         
         {/* Subtle hospital blue & gold brand tint */}
         <div className="absolute inset-0 bg-radial from-transparent to-[#1B3F9B]/10 mix-blend-multiply pointer-events-none" />
@@ -363,14 +385,21 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-end lg:items-center">
           
           {/* LEFT SIDE: WELCOMING WOMAN'S PHOTO VISIBLE AT TOP, COPY AT BOTTOM */}
-          <div className="lg:col-span-5 flex flex-col justify-end space-y-4 text-white py-4 lg:py-6 drop-shadow-md">
+          <div className="lg:col-span-5 relative overflow-hidden rounded-3xl shadow-2xl ring-1 ring-white/30 min-h-[440px] sm:min-h-[520px] lg:min-h-[640px] flex flex-col justify-end">
+            <img
+              src={ambassadorPortrait}
+              alt="Duta layanan Siloam Hospitals menyambut calon rekanan"
+              className="absolute inset-0 h-full w-full object-cover object-bottom"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#071536] via-[#071536]/70 via-40% to-transparent to-65%" />
+            <div className="relative space-y-3 text-white p-5 sm:p-6 drop-shadow-md">
             <div className="space-y-2.5">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E5A823] text-[#0B2361] px-3.5 py-1 text-xs font-siloam font-bold shadow-md">
                 <Sparkles className="h-3.5 w-3.5" />
                 Pintu Terbuka bagi Calon Rekanan
               </span>
 
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-siloam font-black tracking-tight leading-snug text-white drop-shadow-lg">
+              <h1 className="text-2xl sm:text-3xl font-siloam font-black tracking-tight leading-tight text-white drop-shadow-lg">
                 Melayani dengan Kasih & Menjunjung Kemitraan Berkualitas
               </h1>
 
@@ -400,6 +429,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                   Legalitas lengkap saat menang tender
                 </div>
               </div>
+            </div>
             </div>
           </div>
 
@@ -477,14 +507,14 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                   <div className="flex items-center gap-2">
                     <div
                       className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold font-siloam ${
-                        step === 'profile'
+                        step !== 'product_category'
                           ? 'bg-[#1B3F9B] text-white'
                           : 'bg-emerald-600 text-white'
                       }`}
                     >
                       {step === 'product_category' ? '✓' : '1'}
                     </div>
-                    <span className={step === 'profile' ? 'font-siloam font-bold text-[#0B2361] dark:text-white' : 'text-slate-500 font-medium'}>
+                    <span className={step !== 'product_category' ? 'font-siloam font-bold text-[#0B2361] dark:text-white' : 'text-slate-500 font-medium'}>
                       {activeTab === 'login' ? 'Login Akun' : 'Data Perusahaan'}
                     </span>
                   </div>
@@ -523,6 +553,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                   <h2 className="text-lg sm:text-xl font-siloam font-extrabold text-[#0B2361] dark:text-white">
                     {step === 'profile' && activeTab === 'login' && 'Login Portal Rekanan Siloam'}
                     {step === 'profile' && activeTab === 'new_vendor' && 'Daftar Calon Rekanan Baru Siloam'}
+                    {step === 'verify' && 'Verifikasi Email'}
                     {step === 'product_category' && 'Pilih Ruang Lingkup Komoditas Anda'}
                   </h2>
                   <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
@@ -530,6 +561,8 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                       'Masuk dengan Email resmi PIC atau NPWP perusahaan dan password akun Anda.'}
                     {step === 'profile' && activeTab === 'new_vendor' &&
                       'Isi data kontak perusahaan dan buat password akun Anda untuk mulai berpartisipasi dalam sourcing Siloam.'}
+                    {step === 'verify' &&
+                      'Satu langkah lagi: masukkan kode yang kami kirim ke email PIC untuk memastikan akun ini milik Anda.'}
                     {step === 'product_category' &&
                       'Pilih 1 atau beberapa kategori produk dagang Anda. Matriks penawaran akan disaring otomatis sesuai spesialisasi Anda.'}
                   </p>
@@ -547,6 +580,16 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
               {/* ======================================================== */}
               {/* TAB 1: LOGIN REKANAN (EMAIL / NPWP + PASSWORD)           */}
               {/* ======================================================== */}
+              {step === 'verify' && otp && (
+                <OtpCodeForm
+                  challenge={otp.challenge}
+                  onVerified={handleCodeVerified}
+                  onResend={() => startSignIn('vendor', otp.identifier, otp.password)}
+                  onCancel={handleCancelCode}
+                  cancelLabel={otp.fromSignUp ? 'Masuk nanti' : 'Ganti akun'}
+                />
+              )}
+
               {step === 'profile' && activeTab === 'login' && (
                 <form onSubmit={handleVendorLogin} className="space-y-4">
                   {/* Email / NPWP */}

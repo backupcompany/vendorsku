@@ -40,6 +40,7 @@ func main() {
 	mux.HandleFunc("POST /api/sign-in", postSignInAs(db, "vendor", signInVendor))
 	mux.HandleFunc("POST /api/staff/sign-in", postSignInAs(db, "staff", signInStaff))
 	mux.HandleFunc("POST /api/vendors", postVendor(db))
+	mux.HandleFunc("POST /api/sign-in/verify", postVerifyOTP(db))
 	mux.HandleFunc("GET /api/hospitals", listHospitals(db))
 	mux.HandleFunc("GET /api/options", func(w http.ResponseWriter, r *http.Request) {
 		writeQuery(w, db.QueryRowContext(r.Context(), `SELECT coalesce(jsonb_object_agg(list, items), '{}'::jsonb) FROM (

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -544,6 +546,10 @@ func TestSignInThrottleAndCookie(t *testing.T) {
 	}
 	signInThrottle.clear("staff:admin")
 	signInThrottle.clear("ip:192.0.2.9")
+	db.Exec(`DELETE FROM otp_challenges WHERE actor_id = 'adm-001'`)
+	defer db.Exec(`DELETE FROM otp_challenges WHERE actor_id = 'adm-001'`)
+	sendMail = func(context.Context, string, string, string) error { return nil }
+	defer func() { sendMail = webhookMail }()
 	h := postSignInAs(db, "staff", signInStaff)
 	try := func(password string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":" Admin ","password":"`+password+`"}`))
@@ -553,11 +559,9 @@ func TestSignInThrottleAndCookie(t *testing.T) {
 		return rec
 	}
 	rec := try("admin123")
-	cookie := rec.Result().Cookies()
-	if rec.Code != 200 || len(cookie) != 1 || !cookie[0].HttpOnly || cookie[0].SameSite != http.SameSiteStrictMode || strings.Contains(rec.Body.String(), "token") {
-		t.Fatalf("sign-in %d cookies %+v body %s", rec.Code, cookie, rec.Body)
+	if rec.Code != 200 || len(rec.Result().Cookies()) != 0 || !strings.Contains(rec.Body.String(), `"otpRequired":true`) {
+		t.Fatalf("password alone must not sign in: %d %s", rec.Code, rec.Body)
 	}
-	defer db.Exec(`DELETE FROM sessions WHERE id = $1`, tokenHash(cookie[0].Value))
 	for i := 0; i < maxFailsPerKey; i++ {
 		if rec = try("salah-terus-1"); rec.Code != 401 {
 			t.Fatalf("attempt %d got %d", i, rec.Code)
@@ -567,4 +571,103 @@ func TestSignInThrottleAndCookie(t *testing.T) {
 		t.Fatalf("locked account got %d", rec.Code)
 	}
 	signInThrottle.clear("staff:admin")
+}
+
+func TestEmailOTP(t *testing.T) {
+	db, err := openDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	reset := func() {
+		db.Exec(`DELETE FROM otp_challenges WHERE actor_id = 'adm-001'`)
+		signInThrottle.clear("staff:admin")
+		signInThrottle.clear(otpKey("staff", "adm-001"))
+	}
+	reset()
+	defer reset()
+	var mailedTo, mailed string
+	sendMail = func(_ context.Context, to, _, body string) error { mailedTo, mailed = to, body; return nil }
+	defer func() { sendMail = webhookMail }()
+	codeIn := regexp.MustCompile(`>(\d{6})<`)
+
+	signIn := func() (challenge, code string) {
+		req := httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":"admin","password":"admin123"}`))
+		rec := httptest.NewRecorder()
+		postSignInAs(db, "staff", signInStaff)(rec, req)
+		var out struct {
+			Challenge string `json:"challenge"`
+			Email     string `json:"email"`
+		}
+		json.Unmarshal(rec.Body.Bytes(), &out)
+		if rec.Code != 200 || out.Challenge == "" || strings.Contains(out.Email, "heldra.parningotan") {
+			t.Fatalf("sign-in %d %s", rec.Code, rec.Body)
+		}
+		m := codeIn.FindStringSubmatch(mailed)
+		if m == nil || mailedTo != "heldra.parningotan@siloamhospitals.com" {
+			t.Fatalf("mail to %q body %q", mailedTo, mailed)
+		}
+		return out.Challenge, m[1]
+	}
+	verify := func(challenge, code string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "/api/sign-in/verify", strings.NewReader(`{"challenge":"`+challenge+`","code":" `+code+` "}`))
+		rec := httptest.NewRecorder()
+		postVerifyOTP(db)(rec, req)
+		return rec
+	}
+	wrong := func(code string) string {
+		if code == "000000" {
+			return "000001"
+		}
+		return "000000"
+	}
+
+	first, firstCode := signIn()
+	req := httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":"admin","password":"admin123"}`))
+	rec := httptest.NewRecorder()
+	postSignInAs(db, "staff", signInStaff)(rec, req)
+	if rec.Code != 429 {
+		t.Fatalf("resend inside cooldown got %d", rec.Code)
+	}
+	db.Exec(`UPDATE otp_challenges SET created_at = now() - interval '2 minutes' WHERE actor_id = 'adm-001'`)
+	second, code := signIn()
+	if rec := verify(first, firstCode); rec.Code != 410 {
+		t.Fatalf("older code must die when a fresh one is sent, got %d", rec.Code)
+	}
+	if rec := verify(second, "12ab56"); rec.Code != 400 {
+		t.Fatalf("non-digit code got %d", rec.Code)
+	}
+	if rec := verify(second, wrong(code)); rec.Code != 401 || !strings.Contains(rec.Body.String(), "Sisa 4") || len(rec.Result().Cookies()) != 0 {
+		t.Fatalf("wrong code got %d %s", rec.Code, rec.Body)
+	}
+	rec = verify(second, code)
+	cookie := rec.Result().Cookies()
+	if rec.Code != 200 || len(cookie) != 1 || !cookie[0].HttpOnly || cookie[0].SameSite != http.SameSiteStrictMode || !strings.Contains(rec.Body.String(), `"staff"`) {
+		t.Fatalf("right code got %d %s", rec.Code, rec.Body)
+	}
+	db.Exec(`DELETE FROM sessions WHERE id = $1`, tokenHash(cookie[0].Value))
+	if rec := verify(second, code); rec.Code != 410 {
+		t.Fatalf("code reuse got %d", rec.Code)
+	}
+
+	db.Exec(`DELETE FROM otp_challenges WHERE actor_id = 'adm-001'`)
+	third, code := signIn()
+	for i := 0; i < otpMaxAttempts-1; i++ {
+		verify(third, wrong(code))
+	}
+	if rec := verify(third, wrong(code)); rec.Code != 410 {
+		t.Fatalf("5th wrong code must burn the challenge, got %d", rec.Code)
+	}
+	if rec := verify(third, code); rec.Code != 410 {
+		t.Fatalf("burned challenge accepted right code: %d", rec.Code)
+	}
+	req = httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":"admin","password":"admin123"}`))
+	rec = httptest.NewRecorder()
+	postSignInAs(db, "staff", signInStaff)(rec, req)
+	if rec.Code != 429 {
+		t.Fatalf("account must cool down after too many wrong codes, got %d", rec.Code)
+	}
 }

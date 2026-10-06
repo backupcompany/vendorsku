@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { SiloamLogo } from '../core/ui/SiloamLogo';
 import { AdminUser } from '../core/types';
-import { authService } from '../core/services/auth/authService';
+import { OtpChallenge, startSignIn } from '../core/api/session';
+import { OtpCodeForm } from '../core/ui/OtpCodeForm';
 import {
   ShieldCheck,
   Lock,
@@ -34,6 +35,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
+  const [otp, setOtp] = useState<OtpChallenge | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,9 +58,8 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
     setIsLoading(true);
 
     try {
-      const admin = await authService.adminLogin(cleanId, password);
+      setOtp(await startSignIn('staff', cleanId, password));
       setIsLoading(false);
-      onLoginSuccess(admin);
     } catch (err: any) {
       setIsLoading(false);
       setErrorMsg(err.message || 'Gagal login. Periksa username dan password.');
@@ -119,6 +120,18 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
               </p>
             </div>
 
+            {otp ? (
+              <OtpCodeForm
+                challenge={otp}
+                onVerified={(account) => account.kind === 'staff' && onLoginSuccess(account.staff)}
+                onResend={() => startSignIn('staff', identifier.trim().toLowerCase(), password)}
+                onCancel={() => {
+                  setOtp(null);
+                  setPassword('');
+                }}
+              />
+            ) : (
+            <>
             {/* Error Message */}
             {errorMsg && (
               <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200 animate-in fade-in">
@@ -199,6 +212,8 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
                 )}
               </button>
             </form>
+            </>
+            )}
 
           </div>
 
