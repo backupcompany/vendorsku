@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { VendorProfile, BusinessScope } from '../core/types';
-import { SiloamLogo } from '../core/ui/SiloamLogo';
 import { OtpCodeForm } from '../core/ui/OtpCodeForm';
 import { OtpChallenge, VerifiedAccount, patchVendor, signUpVendor, startSignIn } from '../core/api/session';
 import { ForgotPasswordForm } from '../core/ui/ForgotPasswordForm';
@@ -70,8 +69,6 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   'GENERAL EQUIPMENT': <Bed className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
   'INFORMATION & COMMUNICATION TECHNOLOGY': <Laptop className="h-5 w-5 text-slate-700 dark:text-slate-300" />,
 };
-
-const OFFICIAL_SILOAM_LOGO_URL = 'https://www.siloamhospitals.com/assets/logo-new-DU4qZWaH.png';
 
 export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
   onLoginSuccess,
@@ -321,7 +318,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <img
           src={receptionistPhoto}
-          alt="Siloam Hospitals Welcoming Healthcare Ambassador"
+          alt=""
           className="w-full h-full object-cover object-left lg:object-[15%_center] filter brightness-[0.98] dark:brightness-[0.60] contrast-[1.03]"
           referrerPolicy="no-referrer"
         />
@@ -336,17 +333,12 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
         <div className="absolute inset-0 bg-radial from-transparent to-[#1B3F9B]/10 mix-blend-multiply pointer-events-none" />
       </div>
 
-      {/* 1. TOP HEADER BAR WITH OFFICIAL SILOAM LOGO */}
       <header className="relative z-30 w-full border-b border-white/20 bg-white/85 backdrop-blur-md px-4 sm:px-8 py-3.5 shadow-xs dark:border-slate-800 dark:bg-[#071536]/85">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          {/* Official Siloam Logo */}
           <div className="flex items-center gap-3">
-            <img
-              src={OFFICIAL_SILOAM_LOGO_URL}
-              alt="Siloam Hospitals"
-              className="h-9 sm:h-10 w-auto object-contain shrink-0 drop-shadow-xs"
-              referrerPolicy="no-referrer"
-            />
+            <span className="text-sm sm:text-base font-siloam font-extrabold text-[#0B2361] dark:text-white tracking-tight">
+              Submit Your Product
+            </span>
             <span className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#1B3F9B]/10 text-[#1B3F9B] dark:bg-blue-900/40 dark:text-blue-300 border border-[#1B3F9B]/20">
               <span className="h-1.5 w-1.5 rounded-full bg-[#E5A823]" />
               E-Procurement & Sourcing Portal
@@ -379,7 +371,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
               </h1>
 
               <p className="text-xs sm:text-sm text-slate-100/95 leading-relaxed font-normal drop-shadow-md max-w-lg">
-                Siloam Hospitals Group membuka peluang kemitraan pengadaan barang & jasa medis berkualitas bagi {hospitalCount ?? '…'} rumah sakit di seluruh Indonesia.
+                Portal kemitraan pengadaan barang & jasa medis berkualitas bagi {hospitalCount ?? '…'} rumah sakit di seluruh Indonesia.
               </p>
             </div>
 
@@ -407,18 +399,9 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
             </div>
           </div>
 
-          {/* RIGHT SIDE: LOGO SILOAM MITRA REKANAN DIATAS PANEL FORM & CLEAN FORM CARD */}
           <div className="lg:col-span-7 flex flex-col justify-center space-y-3">
-            {/* Logo Siloam Mitra Rekanan tepat di atas panel form */}
             <div className="flex items-center justify-between px-1">
               <div className="inline-flex items-center gap-3 bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl shadow-md border border-slate-200/90 dark:bg-[#0B1A3D]/95 dark:border-slate-800">
-                <img
-                  src={OFFICIAL_SILOAM_LOGO_URL}
-                  alt="Siloam Hospitals Healthcare Group"
-                  className="h-7 sm:h-8 w-auto object-contain"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="h-5 w-px bg-slate-300 dark:bg-slate-700" />
                 <span className="text-[11px] font-siloam font-bold text-[#0B2361] dark:text-blue-300 uppercase tracking-wider">
                   Mitra Rekanan 2026
                 </span>
@@ -525,8 +508,8 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                 {/* Subtitle Message in Siloam Typography */}
                 <div className="mt-3">
                   <h2 className="text-lg sm:text-xl font-siloam font-extrabold text-[#0B2361] dark:text-white">
-                    {step === 'profile' && activeTab === 'login' && 'Login Portal Rekanan Siloam'}
-                    {step === 'profile' && activeTab === 'new_vendor' && 'Daftar Calon Rekanan Baru Siloam'}
+                    {step === 'profile' && activeTab === 'login' && 'Login Portal Rekanan'}
+                    {step === 'profile' && activeTab === 'new_vendor' && 'Daftar Calon Rekanan Baru'}
                     {step === 'verify' && 'Verifikasi Email'}
                     {step === 'product_category' && 'Pilih Ruang Lingkup Komoditas Anda'}
                   </h2>
@@ -534,7 +517,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                     {step === 'profile' && activeTab === 'login' &&
                       'Masuk dengan Email resmi PIC atau NPWP perusahaan dan password akun Anda.'}
                     {step === 'profile' && activeTab === 'new_vendor' &&
-                      'Isi data kontak perusahaan dan buat password akun Anda untuk mulai berpartisipasi dalam sourcing Siloam.'}
+                      'Isi data kontak perusahaan dan buat password akun Anda untuk mulai berpartisipasi dalam sourcing.'}
                     {step === 'verify' &&
                       'Satu langkah lagi: masukkan kode yang kami kirim ke email PIC untuk memastikan akun ini milik Anda.'}
                     {step === 'product_category' &&
@@ -644,7 +627,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                       <span>Memverifikasi Akun Rekanan...</span>
                     ) : (
                       <>
-                        <span>Masuk ke Portal Rekanan Siloam</span>
+                        <span>Masuk ke Portal Rekanan</span>
                         <ArrowRight className="h-4 w-4" />
                       </>
                     )}
@@ -897,7 +880,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                     {searchQuery.trim().length >= 2 && searchResults.length > 0 && (
                       <div className="space-y-1.5 pt-1">
                         <div className="text-[11px] font-semibold text-[#0B2361] dark:text-blue-200">
-                          Ditemukan di Katalog Master Siloam:
+                          Ditemukan di katalog master:
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {searchResults.map((item, idx) => (
@@ -1027,7 +1010,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
 
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-end order-1 sm:order-2">
                       <span className="text-[11px] text-slate-500 hidden sm:inline">
-                        Menampilkan <strong className="text-slate-900 dark:text-white">{matchingSkusCount} SKU</strong> Siloam
+                        Menampilkan <strong className="text-slate-900 dark:text-white">{matchingSkusCount} SKU</strong>
                       </span>
 
                       <button
@@ -1047,20 +1030,14 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
         </div>
       </main>
 
-      {/* 3. CORPORATE FOOTER (SILOAM HOSPITALS CLEAN STYLING) */}
       <footer className="relative z-20 w-full border-t border-slate-200/90 bg-white/90 backdrop-blur-md py-4 px-4 sm:px-8 text-xs text-slate-500 dark:border-slate-800 dark:bg-[#071536]/90 dark:text-slate-400">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <img
-              src={OFFICIAL_SILOAM_LOGO_URL}
-              alt="Siloam Hospitals"
-              className="h-6 w-auto object-contain"
-              referrerPolicy="no-referrer"
-            />
-            <span>·</span>
             <span className="font-siloam font-bold text-[#0B2361] dark:text-slate-200">
-              Procurement & Supply Chain Management
+              Submit Your Product
             </span>
+            <span>·</span>
+            <span>Procurement & Supply Chain</span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px]">

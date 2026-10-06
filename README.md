@@ -13,7 +13,7 @@ Checks: `bunx tsc --noEmit -p .`, `bun run build`, `cd backend && go test ./...`
 
 ## Production
 
-https://vendorsku.cgp-ai.com — Cloudflare → Caddy (`gateway-caddy`) → web `127.0.0.1:3060` → api `127.0.0.1:8096`.
+https://submityourproduct.cgp-ai.com — Cloudflare → Caddy (`gateway-caddy`) → web `127.0.0.1:3060` → api `127.0.0.1:8096`.
 
 - Server dir: `/opt/apps/vendorsku` (clone of this repo + server-only `.env`, mode 600).
 - Push to `main` runs `.github/workflows/deploy.yml`: tests, then SSH → `deploy.sh` (pull, `docker compose up -d --build`, health check).
