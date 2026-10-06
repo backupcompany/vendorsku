@@ -40,6 +40,7 @@ import {
 import { useUrlTab } from '../core/router/useAppRouter';
 import { passwordProblem, passwordRules, phoneProblem, vendorIdentifierProblem } from '../core/auth/signInRules';
 import { PasswordChecklist } from '../core/ui/PasswordChecklist';
+import receptionistPhoto from '../assets/images/siloam_receptionist_left_1790751440935.jpg';
 
 const LANDING_TABS = ['login', 'new_vendor'] as const;
 
@@ -297,7 +298,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
       {/* ======================================================== */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <img
-          src="/src/assets/images/siloam_receptionist_left_1790751440935.jpg"
+          src={receptionistPhoto}
           alt="Siloam Hospitals Welcoming Healthcare Ambassador"
           className="w-full h-full object-cover object-left lg:object-[15%_center] filter brightness-[0.98] dark:brightness-[0.60] contrast-[1.03]"
           referrerPolicy="no-referrer"

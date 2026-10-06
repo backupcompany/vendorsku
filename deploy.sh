@@ -7,7 +7,7 @@ git reset --hard --quiet origin/main
 set -a; source .env; set +a
 docker compose up -d --build --remove-orphans
 for _ in $(seq 1 30); do
-  if curl -fsS "http://127.0.0.1:${GO_PORT}/api/health" >/dev/null && curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null; then
+  if curl -fsS "http://127.0.0.1:${GO_PORT}/api/health" >/dev/null 2>&1 && curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null 2>&1; then
     docker image prune -f >/dev/null
     echo "vendorsku deployed $(git rev-parse --short HEAD)"
     exit 0
