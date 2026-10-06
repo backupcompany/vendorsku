@@ -21,7 +21,7 @@ const PageLoader: React.FC<{ label: string }> = ({ label }) => (
 export default function App() {
   const { isAdmin, adminSubRoute, navigate } = useAppRouter();
   const adminAuth = useAdminAuth();
-  const [isDark, setIsDark] = useState<boolean>(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const [isDark, setIsDark] = useState(false);
 
   const sessionVendor = useSessionStore((state) => state.vendor);
   const setSessionVendor = useSessionStore((state) => state.setVendor);
