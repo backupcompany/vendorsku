@@ -22,14 +22,12 @@ interface VendorPortalPageProps {
   onLogoutOrChangeCompany?: () => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
-  onNavigateAdmin?: () => void;
 }
 
 export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
   onLogoutOrChangeCompany,
   isDark = false,
   onToggleTheme = () => {},
-  onNavigateAdmin = () => {},
 }) => {
   const {
     currentVendor,
@@ -163,7 +161,6 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
         onToggleTheme={onToggleTheme}
         vendorName={currentVendor.companyName}
         vendorStatus={currentVendor.status}
-        onNavigateAdmin={onNavigateAdmin}
         onOpenQuickGuide={() => setIsQuickGuideOpen(true)}
         onLogout={onLogoutOrChangeCompany}
         onOpenChangePassword={() => setIsChangePasswordOpen(true)}

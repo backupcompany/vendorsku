@@ -10,7 +10,6 @@ import {
   Building2,
   CheckCircle2,
   Clock,
-  ShieldCheck,
   Sun,
   Moon,
   ChevronDown,
@@ -37,7 +36,6 @@ interface ExcelRibbonHeaderProps {
   onLogoutOrChangeCompany?: () => void;
   isDark: boolean;
   onToggleTheme: () => void;
-  onNavigateAdmin: () => void;
   masterSkus: MasterSku[];
   onBulkSave: (submissions: VendorPriceSubmission[]) => Promise<void>;
 }
@@ -60,7 +58,6 @@ export const ExcelRibbonHeader: React.FC<ExcelRibbonHeaderProps> = ({
   onLogoutOrChangeCompany,
   isDark,
   onToggleTheme,
-  onNavigateAdmin,
   masterSkus,
   onBulkSave,
 }) => {
@@ -181,16 +178,6 @@ export const ExcelRibbonHeader: React.FC<ExcelRibbonHeaderProps> = ({
             aria-label="Ganti mode tampilan"
           >
             {isDark ? <Sun className="h-3.5 w-3.5 text-[#E5A823]" /> : <Moon className="h-3.5 w-3.5" />}
-          </button>
-
-          {/* Staf Internal Siloam /admin */}
-          <button
-            type="button"
-            onClick={onNavigateAdmin}
-            className="hidden sm:inline-flex items-center gap-1 rounded-lg bg-[#1B3F9B] hover:bg-[#15337E] px-2 py-1 text-[11px] font-semibold text-white transition-colors cursor-pointer shadow-2xs"
-          >
-            <ShieldCheck className="h-3 w-3 text-blue-200" />
-            <span className="font-siloam">/admin</span>
           </button>
         </div>
       </div>

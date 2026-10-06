@@ -3,11 +3,11 @@ import { VendorProfile, BusinessScope } from '../core/types';
 import { SiloamLogo } from '../core/ui/SiloamLogo';
 import { OtpCodeForm } from '../core/ui/OtpCodeForm';
 import { OtpChallenge, VerifiedAccount, patchVendor, signUpVendor, startSignIn } from '../core/api/session';
+import { ForgotPasswordForm } from '../core/ui/ForgotPasswordForm';
 import { fetchSkuTaxonomy, searchSkuNames, SkuHit, SkuTaxonomy } from '../core/api/catalog';
 import { useActiveHospitalCount, useOptions } from '../core/api/options';
 import {
   Building2,
-  ShieldCheck,
   ArrowRight,
   KeyRound,
   Sparkles,
@@ -46,7 +46,6 @@ const LANDING_TABS = ['login', 'new_vendor'] as const;
 
 interface VendorLandingPageProps {
   onLoginSuccess: (vendor: VendorProfile, isNewSupplier: boolean, scope?: BusinessScope) => void;
-  onNavigateAdmin: () => void;
   isDark: boolean;
   onToggleTheme: () => void;
 }
@@ -76,7 +75,6 @@ const OFFICIAL_SILOAM_LOGO_URL = 'https://www.siloamhospitals.com/assets/logo-ne
 
 export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
   onLoginSuccess,
-  onNavigateAdmin,
   isDark,
   onToggleTheme,
 }) => {
@@ -92,6 +90,8 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [resetNotice, setResetNotice] = useState('');
 
   // NEW VENDOR FORM FIELDS
   const [companyName, setCompanyName] = useState('');
@@ -363,19 +363,6 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
             >
               {isDark ? <Sun className="h-4 w-4 text-[#E5A823]" /> : <Moon className="h-4 w-4" />}
             </button>
-
-            {/* Link for Internal Siloam Staff */}
-            <button
-              type="button"
-              onClick={onNavigateAdmin}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/90 hover:bg-white hover:border-[#1B3F9B]/40 px-3.5 py-1.5 text-xs font-semibold text-[#0B2361] dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-200 transition-colors shadow-2xs cursor-pointer group"
-            >
-              <ShieldCheck className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400" />
-              <span className="font-siloam">Staf Internal Siloam</span>
-              <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded text-[#1B3F9B] dark:text-blue-300">
-                /admin
-              </span>
-            </button>
           </div>
         </div>
       </header>
@@ -557,10 +544,9 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
               </div>
 
               {/* ERROR ALERT */}
-              {formError && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 flex items-center gap-2 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-                  <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
-                  <span>{formError}</span>
+              {resetNotice && !formError && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  {resetNotice}
                 </div>
               )}
 
@@ -578,6 +564,21 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
               )}
 
               {step === 'profile' && activeTab === 'login' && (
+                forgotPassword ? (
+                  <ForgotPasswordForm
+                    realm="vendor"
+                    initialIdentifier={loginIdentifier}
+                    onCancel={() => {
+                      setForgotPassword(false);
+                      setResetNotice('');
+                    }}
+                    onDone={() => {
+                      setForgotPassword(false);
+                      setLoginPassword('');
+                      setResetNotice('Password baru sudah disimpan. Masuk dengan password itu.');
+                    }}
+                  />
+                ) : (
                 <form onSubmit={handleVendorLogin} className="space-y-4">
                   {/* Email / NPWP */}
                   <div>
@@ -649,7 +650,18 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                     )}
                   </button>
 
-                  <div className="flex justify-end text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotPassword(true);
+                        setFormError('');
+                        setResetNotice('');
+                      }}
+                      className="text-[#1B3F9B] dark:text-blue-400 hover:underline font-semibold cursor-pointer"
+                    >
+                      Lupa password?
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -662,6 +674,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                     </button>
                   </div>
                 </form>
+                )
               )}
 
               {/* ======================================================== */}
@@ -1054,13 +1067,6 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
             <span>Standar SKU Nasional 4 Bagian</span>
             <span>·</span>
             <span>Coverage {hospitalCount ?? '…'} Unit Rumah Sakit</span>
-            <span>·</span>
-            <button
-              onClick={onNavigateAdmin}
-              className="text-[#1B3F9B] hover:underline cursor-pointer dark:text-blue-400 font-semibold"
-            >
-              Akses Staf Internal (/admin)
-            </button>
           </div>
         </div>
       </footer>

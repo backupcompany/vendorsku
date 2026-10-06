@@ -55,6 +55,9 @@ func main() {
 	mux.HandleFunc("GET /api/session", getSession(db))
 	mux.HandleFunc("POST /api/sign-out", postSignOut(db))
 	mux.HandleFunc("POST /api/password", guard(db, anySession, postChangePassword(db)))
+	mux.HandleFunc("POST /api/password/forgot", postForgotPassword(db, "vendor"))
+	mux.HandleFunc("POST /api/staff/password/forgot", postForgotPassword(db, "staff"))
+	mux.HandleFunc("POST /api/password/reset", postResetPassword(db))
 
 	// A vendor only ever reaches its own id; staff reach every vendor.
 	mux.HandleFunc("GET /api/vendors/{id}", guard(db, selfOrStaff, func(w http.ResponseWriter, r *http.Request) {

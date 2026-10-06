@@ -750,3 +750,75 @@ func TestChangePassword(t *testing.T) {
 		t.Fatal("old password still works")
 	}
 }
+
+func TestForgotPassword(t *testing.T) {
+	db, err := openDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	_, _ = db.ExecContext(ctx, `DELETE FROM vendors WHERE id = 'vnd-forgot'`)
+	hash, err := bcrypt.GenerateFromPassword([]byte("OldPass12"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO vendors (id, company_name, status, password_hash, pic)
+		VALUES ('vnd-forgot', 'Forgot Co', 'prospect', $1, '{"email":"forgot@example.com","phone":"081234567890"}'::jsonb)
+	`, string(hash)); err != nil {
+		t.Fatal(err)
+	}
+	defer db.Exec(`DELETE FROM vendors WHERE id = 'vnd-forgot'`)
+	defer db.Exec(`DELETE FROM otp_challenges WHERE actor_id = 'vnd-forgot'`)
+	signInThrottle.clear("reset:vendor:ghost@example.com")
+	signInThrottle.clear("reset:vendor:forgot@example.com")
+	signInThrottle.clear(otpKey("vendor", "vnd-forgot"))
+
+	var mailed string
+	sendMail = func(_ context.Context, _, _, body string) error { mailed = body; return nil }
+	defer func() { sendMail = webhookMail }()
+
+	ghost := httptest.NewRequest("POST", "/api/password/forgot", strings.NewReader(`{"identifier":"ghost@example.com"}`))
+	grec := httptest.NewRecorder()
+	postForgotPassword(db, "vendor")(grec, ghost)
+	if grec.Code != 200 || !strings.Contains(grec.Body.String(), `"otpRequired":true`) {
+		t.Fatalf("unknown account %d %s", grec.Code, grec.Body)
+	}
+
+	req := httptest.NewRequest("POST", "/api/password/forgot", strings.NewReader(`{"identifier":"forgot@example.com"}`))
+	rec := httptest.NewRecorder()
+	postForgotPassword(db, "vendor")(rec, req)
+	var out struct {
+		Challenge string `json:"challenge"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &out)
+	if rec.Code != 200 || out.Challenge == "" {
+		t.Fatalf("forgot %d %s", rec.Code, rec.Body)
+	}
+	m := regexp.MustCompile(`>(\d{6})<`).FindStringSubmatch(mailed)
+	if m == nil {
+		t.Fatalf("no code in mail %q", mailed)
+	}
+	bad := httptest.NewRequest("POST", "/api/password/reset", strings.NewReader(`{"challenge":"`+out.Challenge+`","code":"`+m[1]+`","newPassword":"short"}`))
+	brec := httptest.NewRecorder()
+	postResetPassword(db)(brec, bad)
+	if brec.Code != 400 {
+		t.Fatalf("weak password %d %s", brec.Code, brec.Body)
+	}
+	ok := httptest.NewRequest("POST", "/api/password/reset", strings.NewReader(`{"challenge":"`+out.Challenge+`","code":"`+m[1]+`","newPassword":"NewPass99"}`))
+	orec := httptest.NewRecorder()
+	postResetPassword(db)(orec, ok)
+	if orec.Code != 200 {
+		t.Fatalf("reset %d %s", orec.Code, orec.Body)
+	}
+	if _, _, status, _ := signInVendor(ctx, db, "forgot@example.com", "OldPass12"); status != 401 {
+		t.Fatalf("old password still %d", status)
+	}
+	if _, _, status, msg := signInVendor(ctx, db, "forgot@example.com", "NewPass99"); status != 200 {
+		t.Fatalf("new password %d %s", status, msg)
+	}
+}

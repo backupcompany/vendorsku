@@ -85,7 +85,7 @@ func maskEmail(email string) string {
 }
 
 // issueOTP replaces any previous code for the account, so only the newest email works.
-func issueOTP(ctx context.Context, db *sql.DB, kind, actorID, email string) (string, error) {
+func issueOTP(ctx context.Context, db *sql.DB, kind, actorID, email string, reset bool) (string, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", err
@@ -116,14 +116,20 @@ func issueOTP(ctx context.Context, db *sql.DB, kind, actorID, email string) (str
 	}
 
 	minutes := int(otpTTL.Minutes())
+	action := "masuk ke"
+	subject := "Kode verifikasi Portal Rekanan Siloam"
+	if reset {
+		action = "mengatur ulang password"
+		subject = "Kode atur ulang password Portal Rekanan Siloam"
+	}
 	body := fmt.Sprintf(`<div style="font-family:Arial,sans-serif;color:#0f172a;max-width:480px">
 <p>Halo,</p>
-<p>Gunakan kode berikut untuk masuk ke <b>Portal Rekanan Siloam Hospitals</b>:</p>
+<p>Gunakan kode berikut untuk %s <b>Portal Rekanan Siloam Hospitals</b>:</p>
 <p style="font-size:28px;font-weight:bold;letter-spacing:6px;color:#1B3F9B">%s</p>
 <p>Kode berlaku %d menit dan hanya bisa dipakai sekali. Kode lama otomatis tidak berlaku.</p>
-<p style="color:#64748b;font-size:12px">Jika Anda tidak sedang masuk, abaikan email ini dan segera ganti password akun %s.</p>
-</div>`, code, minutes, html.EscapeString(email))
-	if err := sendMail(ctx, email, "Kode verifikasi Portal Rekanan Siloam", body); err != nil {
+<p style="color:#64748b;font-size:12px">Jika Anda tidak meminta ini, abaikan email ini. Akun: %s.</p>
+</div>`, action, code, minutes, html.EscapeString(email))
+	if err := sendMail(ctx, email, subject, body); err != nil {
 		db.ExecContext(context.WithoutCancel(ctx), `DELETE FROM otp_challenges WHERE id = $1`, id)
 		return "", err
 	}
@@ -159,7 +165,7 @@ func startOTP(w http.ResponseWriter, r *http.Request, db *sql.DB, kind, actorID 
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Akun belum punya email aktif untuk kode verifikasi. Hubungi Procurement Siloam."})
 		return
 	}
-	token, err := issueOTP(r.Context(), db, kind, actorID, email)
+	token, err := issueOTP(r.Context(), db, kind, actorID, email, false)
 	if errors.Is(err, errOTPCooldown) {
 		w.Header().Set("Retry-After", fmt.Sprint(int(otpResendAfter.Seconds())))
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "Kode baru sudah dikirim. Tunggu 1 menit sebelum meminta kode lagi."})

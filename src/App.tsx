@@ -109,7 +109,6 @@ export default function App() {
     return (
       <VendorLandingPage
         onLoginSuccess={handleLandingLoginSuccess}
-        onNavigateAdmin={() => navigate('/admin')}
         isDark={isDark}
         onToggleTheme={toggleTheme}
       />
@@ -126,7 +125,6 @@ export default function App() {
             onLogoutOrChangeCompany={resetVendorSession}
             isDark={isDark}
             onToggleTheme={toggleTheme}
-            onNavigateAdmin={() => navigate('/admin')}
           />
         </Suspense>
       </main>

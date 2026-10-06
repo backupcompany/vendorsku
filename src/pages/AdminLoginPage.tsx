@@ -3,6 +3,7 @@ import { SiloamLogo } from '../core/ui/SiloamLogo';
 import { AdminUser } from '../core/types';
 import { OtpChallenge, startSignIn } from '../core/api/session';
 import { OtpCodeForm } from '../core/ui/OtpCodeForm';
+import { ForgotPasswordForm } from '../core/ui/ForgotPasswordForm';
 import {
   ShieldCheck,
   Lock,
@@ -36,6 +37,8 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [otp, setOtp] = useState<OtpChallenge | null>(null);
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [resetNotice, setResetNotice] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,6 +133,17 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
                   setPassword('');
                 }}
               />
+            ) : forgotPassword ? (
+              <ForgotPasswordForm
+                realm="staff"
+                initialIdentifier={identifier}
+                onCancel={() => setForgotPassword(false)}
+                onDone={() => {
+                  setForgotPassword(false);
+                  setPassword('');
+                  setResetNotice('Password baru sudah disimpan. Masuk dengan password itu.');
+                }}
+              />
             ) : (
             <>
             {/* Error Message */}
@@ -137,6 +151,11 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
               <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200 animate-in fade-in">
                 <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
                 <span>{errorMsg}</span>
+              </div>
+            )}
+            {resetNotice && !errorMsg && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+                {resetNotice}
               </div>
             )}
 
@@ -210,6 +229,17 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotPassword(true);
+                  setErrorMsg('');
+                  setResetNotice('');
+                }}
+                className="w-full text-center text-[11px] font-semibold text-[#1B3F9B] hover:underline dark:text-blue-400 cursor-pointer"
+              >
+                Lupa password?
               </button>
             </form>
             </>

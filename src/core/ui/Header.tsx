@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, ShoppingBag, ShieldAlert, ArrowRight, Building, HelpCircle, LogOut, KeyRound } from 'lucide-react';
+import { Sun, Moon, ShoppingBag, Building, HelpCircle, LogOut, KeyRound } from 'lucide-react';
 import { SiloamLogo } from './SiloamLogo';
 
 interface HeaderProps {
@@ -7,7 +7,6 @@ interface HeaderProps {
   onToggleTheme: () => void;
   vendorName?: string;
   vendorStatus?: 'prospect' | 'identified' | 'verified';
-  onNavigateAdmin: () => void;
   onOpenQuickGuide?: () => void;
   onLogout?: () => void;
   onOpenChangePassword?: () => void;
@@ -18,7 +17,6 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   vendorName = 'PT Medika Farma',
   vendorStatus,
-  onNavigateAdmin,
   onOpenQuickGuide,
   onLogout,
   onOpenChangePassword,
@@ -95,16 +93,6 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label="Ganti mode tampilan"
           >
             {isDark ? <Sun className="h-4 w-4 text-[#E5A823]" /> : <Moon className="h-4 w-4" />}
-          </button>
-
-          {/* Link for Internal Siloam Staff */}
-          <button
-            type="button"
-            onClick={onNavigateAdmin}
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-[#1B3F9B]/40 px-3 py-1.5 text-xs font-semibold text-[#0B2361] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 transition-colors shadow-2xs cursor-pointer group"
-          >
-            <ShieldAlert className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400" />
-            <span className="font-siloam">Admin RS</span>
           </button>
 
           {/* Vendor Logout Button */}
