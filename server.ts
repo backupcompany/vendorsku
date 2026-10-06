@@ -71,11 +71,13 @@ function proxyGo(req: express.Request, res: express.Response) {
     host: `127.0.0.1:${goPort}`,
     'content-type': pick('content-type') || 'application/json',
     accept: pick('accept') || 'application/json',
-    cookie: pick('cookie'),
-    'x-session-realm': pick('x-session-realm'),
     'x-forwarded-for': clientIp,
     'x-forwarded-proto': pick('x-forwarded-proto') || (req.secure ? 'https' : 'http'),
   };
+  const cookie = pick('cookie');
+  if (cookie) headers.cookie = cookie;
+  const realm = pick('x-session-realm');
+  if (realm) headers['x-session-realm'] = realm;
   if (body !== null) headers['content-length'] = Buffer.byteLength(body);
   const upstream = http.request(
     {
