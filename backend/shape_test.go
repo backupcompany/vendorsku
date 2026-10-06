@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestVendorTreeHidesOtherVendor(t *testing.T) {
@@ -669,5 +671,60 @@ func TestEmailOTP(t *testing.T) {
 	postSignInAs(db, "staff", signInStaff)(rec, req)
 	if rec.Code != 429 {
 		t.Fatalf("account must cool down after too many wrong codes, got %d", rec.Code)
+	}
+}
+
+func TestChangePassword(t *testing.T) {
+	db, err := openDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	_, _ = db.ExecContext(ctx, `DELETE FROM vendors WHERE id = 'vnd-pw-test'`)
+	hash, err := bcrypt.GenerateFromPassword([]byte("OldPass12"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO vendors (id, company_name, status, password_hash, pic)
+		VALUES ('vnd-pw-test', 'PW Test', 'prospect', $1, '{"email":"pwtest@example.com","phone":"081234567890"}'::jsonb)
+	`, string(hash)); err != nil {
+		t.Fatal(err)
+	}
+	defer db.Exec(`DELETE FROM vendors WHERE id = 'vnd-pw-test'`)
+	token, err := issueSession(ctx, db, "vendor", "vnd-pw-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Exec(`DELETE FROM sessions WHERE id = $1`, tokenHash(token))
+
+	call := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "/api/password", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set(realmHeader, "vendor")
+		req.AddCookie(&http.Cookie{Name: sessionCookieName("vendor"), Value: token})
+		rec := httptest.NewRecorder()
+		guard(db, anySession, postChangePassword(db))(rec, req)
+		return rec
+	}
+	if rec := call(`{"currentPassword":"wrong","newPassword":"NewPass99"}`); rec.Code != http.StatusForbidden {
+		t.Fatalf("wrong current: %d %s", rec.Code, rec.Body)
+	}
+	if rec := call(`{"currentPassword":"OldPass12","newPassword":"NewPass99"}`); rec.Code != http.StatusOK {
+		t.Fatalf("change: %d %s", rec.Code, rec.Body)
+	}
+	var stored string
+	if err := db.QueryRow(`SELECT password_hash FROM vendors WHERE id = 'vnd-pw-test'`).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if bcrypt.CompareHashAndPassword([]byte(stored), []byte("NewPass99")) != nil {
+		t.Fatal("db hash not updated")
+	}
+	if bcrypt.CompareHashAndPassword([]byte(stored), []byte("OldPass12")) == nil {
+		t.Fatal("old password still works")
 	}
 }

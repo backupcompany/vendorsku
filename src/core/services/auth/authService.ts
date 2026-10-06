@@ -1,4 +1,5 @@
 import { useSessionStore } from '../../session/store';
+import { changePassword } from '../../api/session';
 import { AdminUser, VendorProfile } from '../../types';
 
 export class AuthService {
@@ -22,8 +23,9 @@ export class AuthService {
     return useSessionStore.getState().vendor?.id ?? null;
   }
 
-  async vendorCreatePassword(_vendorId: string, _newPassword: string): Promise<VendorProfile> {
-    throw new Error('Pengaturan ulang password menyusul. OTP belum dibuka.');
+  /** Persist a new password hash for the signed-in vendor or staff account. */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await changePassword(currentPassword, newPassword);
   }
 }
 

@@ -24,8 +24,10 @@ import {
   Activity,
   CheckCircle2,
   LogOut,
-  UserCheck
+  UserCheck,
+  KeyRound
 } from 'lucide-react';
+import { ChangePasswordModal } from '../modules/vendor/components/VendorChangePasswordModal';
 
 interface AdminErpLayoutProps {
   currentSubRoute: AdminSubRoute;
@@ -45,6 +47,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
   onLogout,
 }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const hospitalCount = useActiveHospitalCount();
 
   const navItems = [
@@ -336,6 +339,16 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
 
             {/* Dark/Light mode switch */}
             <button
+              type="button"
+              onClick={() => setIsChangePasswordOpen(true)}
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-750 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors shadow-2xs cursor-pointer"
+              title="Ganti password akun staf"
+            >
+              <KeyRound className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Ganti Password</span>
+            </button>
+
+            <button
               onClick={onToggleTheme}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 cursor-pointer"
               aria-label="Ganti mode tampilan"
@@ -395,6 +408,12 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
           </div>
         </footer>
       </div>
+
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+        accountName={adminUser?.name || adminUser?.email || 'Staf Siloam'}
+      />
     </div>
   );
 };

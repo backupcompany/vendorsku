@@ -150,6 +150,14 @@ export async function deleteVendorDoc(id: string): Promise<void> {
   }
 }
 
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  try {
+    await http.post('/api/password', { currentPassword, newPassword });
+  } catch (err) {
+    throw apiError(err, 'Gagal mengubah password.');
+  }
+}
+
 export async function patchVendor(id: string, updates: Partial<VendorProfile>): Promise<VendorProfile> {
   try {
     const res = await http.patch(`/api/vendors/${encodeURIComponent(id)}`, updates);

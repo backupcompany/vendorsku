@@ -207,7 +207,7 @@ func signInVendor(ctx context.Context, q dbx, identifier, password string) ([]by
 		return nil, "", http.StatusInternalServerError, "Gagal memeriksa form masuk."
 	}
 	if err == nil && stored == "" {
-		return nil, "", http.StatusForbidden, "Akun rekanan belum punya password. Pengaturan ulang password menyusul. OTP belum dibuka."
+		return nil, "", http.StatusForbidden, "Akun rekanan belum punya password. Minta staf Siloam menyetel password awal, atau daftar ulang dengan password."
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		bcrypt.CompareHashAndPassword(dummyHash, []byte(password))

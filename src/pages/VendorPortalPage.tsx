@@ -407,8 +407,7 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
       <VendorChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
-        vendorId={currentVendor.id}
-        vendorName={currentVendor.companyName}
+        accountName={currentVendor.companyName}
       />
 
       {/* Business Scope Onboarding Modal */}
