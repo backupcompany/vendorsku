@@ -970,3 +970,53 @@ func TestSkuProposalGuardsAndLists(t *testing.T) {
 		t.Fatalf("staff list %d %s", srec.Code, srec.Body)
 	}
 }
+
+func TestVendorSkuProposalBulk(t *testing.T) {
+	db, err := openDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`INSERT INTO vendors (id, company_name, status, pic) VALUES ('bulk-vnd', 'Bulk Co', 'prospect', '{"name":"B","email":"bulk@example.com","phone":"081222222222"}') ON CONFLICT (id) DO NOTHING`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	empty := httptest.NewRequest("POST", "/api/vendors/bulk-vnd/sku-proposals/bulk", strings.NewReader(`{"proposals":[]}`))
+	empty.Header.Set("Content-Type", "application/json")
+	empty.SetPathValue("id", "bulk-vnd")
+	erec := httptest.NewRecorder()
+	postSkuProposalsBulk(db)(erec, empty)
+	if erec.Code != 400 {
+		t.Fatalf("empty bulk %d %s", erec.Code, erec.Body)
+	}
+	bad := httptest.NewRequest("POST", "/api/vendors/bulk-vnd/sku-proposals/bulk", strings.NewReader(`{"proposals":[{"commodityName":"A","generalSpec":"","level1":"UTILITIES"},{"commodityName":"B","generalSpec":"ok","level1":"UTILITIES"}]}`))
+	bad.Header.Set("Content-Type", "application/json")
+	bad.SetPathValue("id", "bulk-vnd")
+	brec := httptest.NewRecorder()
+	postSkuProposalsBulk(db)(brec, bad)
+	if brec.Code != 400 || !strings.Contains(brec.Body.String(), "Baris 1") {
+		t.Fatalf("bad row %d %s", brec.Code, brec.Body)
+	}
+ok := httptest.NewRequest("POST", "/api/vendors/bulk-vnd/sku-proposals/bulk", strings.NewReader(`{"proposals":[{"commodityName":"Item A","generalSpec":"Spek A","level1":"UTILITIES","uom":"Pcs"},{"commodityName":"Item B","generalSpec":"Spek B panjang","level1":"GENERAL SUPPLIES","brand":"NB"}]}`))
+	ok.Header.Set("Content-Type", "application/json")
+	ok.SetPathValue("id", "bulk-vnd")
+	orec := httptest.NewRecorder()
+	postSkuProposalsBulk(db)(orec, ok)
+	if orec.Code != 200 {
+		t.Fatalf("bulk ok %d %s", orec.Code, orec.Body)
+	}
+	var out struct {
+		Saved int      `json:"saved"`
+		IDs   []string `json:"ids"`
+	}
+	if err := json.Unmarshal(orec.Body.Bytes(), &out); err != nil || out.Saved != 2 || len(out.IDs) != 2 {
+		t.Fatalf("body %#v err=%v", out, err)
+	}
+	var pending int
+	if err := db.QueryRow(`SELECT count(*) FROM master_skus WHERE id IN ($1,$2) AND status='pending_review' AND is_open_for_vendor=false`, out.IDs[0], out.IDs[1]).Scan(&pending); err != nil || pending != 2 {
+		t.Fatalf("pending=%d err=%v", pending, err)
+	}
+}

@@ -469,23 +469,37 @@ const skuProposalSchema = z.object({
 
 export type SkuProposal = z.infer<typeof skuProposalSchema>;
 
-export async function proposeSku(
-  vendorId: string,
-  body: {
-    commodityName: string;
-    generalSpec: string;
-    level1: string;
-    uom?: string;
-    brand?: string;
-    partNumber?: string;
-  },
-): Promise<SkuProposal> {
+export type SkuProposalInput = {
+  commodityName: string;
+  generalSpec: string;
+  level1: string;
+  uom?: string;
+  brand?: string;
+  partNumber?: string;
+};
+
+export async function proposeSku(vendorId: string, body: SkuProposalInput): Promise<SkuProposal> {
   try {
     const { data } = await http.post(`/api/vendors/${encodeURIComponent(vendorId)}/sku-proposals`, body);
     return skuProposalSchema.parse(data);
   } catch (err) {
     if (err instanceof z.ZodError) throw new Error('Bentuk usulan server tidak sesuai.');
     throw apiError(err, 'Usulan SKU gagal disimpan.');
+  }
+}
+
+export async function proposeSkusBulk(
+  vendorId: string,
+  proposals: SkuProposalInput[],
+): Promise<{ saved: number; ids: string[] }> {
+  try {
+    const { data } = await http.post(`/api/vendors/${encodeURIComponent(vendorId)}/sku-proposals/bulk`, {
+      proposals,
+    });
+    return z.object({ saved: z.number(), ids: z.array(z.string()) }).parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk usulan server tidak sesuai.');
+    throw apiError(err, 'Usulan SKU massal gagal disimpan.');
   }
 }
 

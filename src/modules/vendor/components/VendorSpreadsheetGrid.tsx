@@ -2157,7 +2157,13 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
         vendorId={vendor.id}
         defaultLevel1={vendor.businessScope?.level1}
         onClose={() => setIsProposeSkuOpen(false)}
-        onSubmitted={() => showToast('Usulan produk dikirim. Menunggu review Catalog Management.')}
+        onSubmitted={(r) =>
+          showToast(
+            'saved' in r
+              ? `${r.saved} usulan produk dikirim. Menunggu review Catalog Management.`
+              : 'Usulan produk dikirim. Menunggu review Catalog Management.',
+          )
+        }
       />
     </div>
   );

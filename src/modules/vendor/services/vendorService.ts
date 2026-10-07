@@ -310,6 +310,96 @@ export class VendorService {
 
     return { validItems, errors };
   }
+
+  /** Template for proposing products that are not yet in the hospital catalog. */
+  exportSkuProposalTemplate(defaultLevel1 = ''): void {
+    const rows = [
+      {
+        'Nama Item': 'Surgical Gloves Latex Powder Free',
+        'Spesifikasi': 'Natural rubber latex, powder-free, ambidextrous, AQL 1.5, size S-XL, EN 455 / ASTM D3577.',
+        'Kategori Level 1': defaultLevel1 || 'DIAGNOSTIC AND MEDICAL DEVICES',
+        'Satuan': 'Box',
+        'Brand': 'ContohBrand',
+        'Part Number': 'GLV-001',
+      },
+      {
+        'Nama Item': '',
+        'Spesifikasi': '',
+        'Kategori Level 1': defaultLevel1 || '',
+        'Satuan': 'Pcs',
+        'Brand': '',
+        'Part Number': '',
+      },
+    ];
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 36 }, { wch: 70 }, { wch: 40 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Usulan_Produk');
+    XLSX.writeFile(wb, 'Template_Usulan_Produk_Vendor.xlsx');
+  }
+
+  parseSkuProposalExcel(fileData: ArrayBuffer): {
+    validItems: {
+      commodityName: string;
+      generalSpec: string;
+      level1: string;
+      uom: string;
+      brand?: string;
+      partNumber?: string;
+    }[];
+    errors: { row: number; reason: string }[];
+  } {
+    const workbook = XLSX.read(fileData, { type: 'array' });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet);
+    const validItems: {
+      commodityName: string;
+      generalSpec: string;
+      level1: string;
+      uom: string;
+      brand?: string;
+      partNumber?: string;
+    }[] = [];
+    const errors: { row: number; reason: string }[] = [];
+
+    rawRows.forEach((row, index) => {
+      const rowNum = index + 2;
+      const findVal = (...keys: string[]) => {
+        const foundKey = Object.keys(row).find((k) =>
+          keys.some((target) =>
+            k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(target.toLowerCase().replace(/[^a-z0-9]/g, '')),
+          ),
+        );
+        return foundKey ? row[foundKey] : undefined;
+      };
+      const commodityName = String(findVal('namaitem', 'commodity', 'namakomoditas', 'item') || '').trim();
+      const generalSpec = String(findVal('spesifikasi', 'specification', 'spek', 'generalspec') || '').trim();
+      const level1 = String(findVal('kategorilevel1', 'level1', 'kategori', 'category') || '').trim();
+      const uom = String(findVal('satuan', 'uom') || 'Pcs').trim() || 'Pcs';
+      const brand = String(findVal('brand', 'merk') || '').trim();
+      const partNumber = String(findVal('partnumber', 'part', 'model', 'type') || '').trim();
+
+      if (!commodityName && !generalSpec && !level1) return; // blank template row
+      if (!commodityName || !generalSpec || !level1) {
+        errors.push({ row: rowNum, reason: 'Nama item, spesifikasi, dan kategori Level 1 wajib diisi.' });
+        return;
+      }
+      if (generalSpec.length > 20000) {
+        errors.push({ row: rowNum, reason: 'Spesifikasi terlalu panjang (maks 20.000 karakter).' });
+        return;
+      }
+      validItems.push({
+        commodityName,
+        generalSpec,
+        level1,
+        uom,
+        brand: brand || undefined,
+        partNumber: partNumber || undefined,
+      });
+    });
+
+    return { validItems, errors };
+  }
 }
 
 export const vendorService = new VendorService();

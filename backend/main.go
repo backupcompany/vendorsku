@@ -75,6 +75,7 @@ func main() {
 	mux.HandleFunc("POST /api/vendors/{id}/offers/bulk", guard(db, vendorSelf, postOffers(db)))
 	mux.HandleFunc("DELETE /api/vendors/{id}/offers/{offerId}", guard(db, vendorSelf, deleteOffer(db)))
 	mux.HandleFunc("POST /api/vendors/{id}/sku-proposals", guard(db, vendorSelf, postSkuProposal(db)))
+	mux.HandleFunc("POST /api/vendors/{id}/sku-proposals/bulk", guard(db, vendorSelf, postSkuProposalsBulk(db)))
 	mux.HandleFunc("GET /api/vendors/{id}/sku-proposals", guard(db, selfOrStaff, listVendorSkuProposals(db)))
 	mux.HandleFunc("GET /api/staff/sku-proposals", staff(listStaffSkuProposals(db)))
 	mux.HandleFunc("POST /api/staff/sku-proposals/{id}/review", staff(reviewSkuProposal(db)))

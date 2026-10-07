@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -11,9 +14,10 @@ import (
 )
 
 const (
-	proposalSource   = "vendor_proposal"
-	proposalLevelPad = "VENDOR PROPOSAL"
-	maxSpecRunes     = 20000
+	proposalSource     = "vendor_proposal"
+	proposalLevelPad   = "VENDOR PROPOSAL"
+	maxSpecRunes       = 20000
+	maxProposalsBatch  = 200
 )
 
 type proposalIn struct {
@@ -59,6 +63,79 @@ const proposalSelect = `
 		'updatedAt', s.updated_at
 	)`
 
+func normalizeProposal(in proposalIn) (proposalIn, string) {
+	in.CommodityName = strings.TrimSpace(in.CommodityName)
+	in.GeneralSpec = strings.TrimSpace(in.GeneralSpec)
+	in.Level1 = strings.TrimSpace(in.Level1)
+	in.Uom = strings.TrimSpace(in.Uom)
+	in.Brand = strings.TrimSpace(in.Brand)
+	in.PartNumber = strings.TrimSpace(in.PartNumber)
+	if in.CommodityName == "" || in.GeneralSpec == "" || in.Level1 == "" {
+		return in, "Nama item, spesifikasi, dan kategori Level 1 wajib diisi."
+	}
+	if utf8.RuneCountInString(in.GeneralSpec) > maxSpecRunes {
+		return in, "Spesifikasi terlalu panjang (maks 20.000 karakter)."
+	}
+	if in.Uom == "" {
+		in.Uom = "Pcs"
+	}
+	return in, ""
+}
+
+func insertSkuProposal(ctx context.Context, q dbx, vendorID, company string, in proposalIn) (string, int, string) {
+	in, msg := normalizeProposal(in)
+	if msg != "" {
+		return "", http.StatusBadRequest, msg
+	}
+	id, err := newID("sku-")
+	if err != nil {
+		return "", http.StatusInternalServerError, "Gagal menyimpan usulan SKU."
+	}
+	erp, err := newID("PROP-")
+	if err != nil {
+		return "", http.StatusInternalServerError, "Gagal menyimpan usulan SKU."
+	}
+	raw, err := json.Marshal(map[string]any{
+		"vendorId":   vendorID,
+		"vendorName": company,
+		"rawSpec":    in.GeneralSpec,
+	})
+	if err != nil {
+		return "", http.StatusInternalServerError, "Gagal menyimpan usulan SKU."
+	}
+	_, err = q.ExecContext(ctx, `
+		INSERT INTO master_skus (
+			id, erp_code, level1, level2, level3, level4,
+			commodity_name, general_spec, default_brand, default_part_number,
+			uom, is_open_for_vendor, is_active, status,
+			source, source_row, is_uploaded, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4, $4, $4,
+			$5, $6, $7, $8,
+			$9, false, false, 'pending_review',
+			$10, jsonb_set($11::jsonb, '{submittedAt}', to_jsonb(now()::text)), false, now(), now()
+		)
+	`, id, erp, in.Level1, proposalLevelPad, in.CommodityName, in.GeneralSpec,
+		optText(in.Brand), optText(in.PartNumber), in.Uom, proposalSource, string(raw))
+	if err != nil {
+		log.Println(err)
+		return "", http.StatusInternalServerError, "Gagal menyimpan usulan SKU."
+	}
+	return id, http.StatusOK, ""
+}
+
+func vendorCompany(ctx context.Context, db *sql.DB, vendorID string) (string, int, string) {
+	var company string
+	if err := db.QueryRowContext(ctx, `SELECT company_name FROM vendors WHERE id = $1`, vendorID).Scan(&company); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", http.StatusNotFound, "Vendor tidak ditemukan."
+		}
+		log.Println(err)
+		return "", http.StatusInternalServerError, "Gagal menyimpan usulan SKU."
+	}
+	return company, http.StatusOK, ""
+}
+
 // Vendor proposes a SKU that is not yet in the catalog. Stays pending_review until staff act.
 func postSkuProposal(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -67,69 +144,65 @@ func postSkuProposal(db *sql.DB) http.HandlerFunc {
 		if !readForm(w, r, &in) {
 			return
 		}
-		name := strings.TrimSpace(in.CommodityName)
-		spec := strings.TrimSpace(in.GeneralSpec)
-		level1 := strings.TrimSpace(in.Level1)
-		uom := strings.TrimSpace(in.Uom)
-		if name == "" || spec == "" || level1 == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Nama item, spesifikasi, dan kategori Level 1 wajib diisi."})
+		company, code, msg := vendorCompany(r.Context(), db, vendorID)
+		if msg != "" {
+			writeJSON(w, code, map[string]string{"error": msg})
 			return
 		}
-		if utf8.RuneCountInString(spec) > maxSpecRunes {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Spesifikasi terlalu panjang (maks 20.000 karakter)."})
-			return
-		}
-		if uom == "" {
-			uom = "Pcs"
-		}
-		var company string
-		if err := db.QueryRowContext(r.Context(), `SELECT company_name FROM vendors WHERE id = $1`, vendorID).Scan(&company); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				writeJSON(w, http.StatusNotFound, map[string]string{"error": "Vendor tidak ditemukan."})
-				return
-			}
-			log.Println(err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan usulan SKU."})
-			return
-		}
-		id, err := newID("sku-")
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan usulan SKU."})
-			return
-		}
-		erp, err := newID("PROP-")
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan usulan SKU."})
-			return
-		}
-		raw, err := json.Marshal(map[string]any{
-			"vendorId":   vendorID,
-			"vendorName": company,
-			"rawSpec":    spec,
-		})
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan usulan SKU."})
-			return
-		}
-		_, err = db.ExecContext(r.Context(), `
-			INSERT INTO master_skus (
-				id, erp_code, level1, level2, level3, level4,
-				commodity_name, general_spec, default_brand, default_part_number,
-				uom, is_open_for_vendor, is_active, status,
-				source, source_row, is_uploaded, created_at, updated_at
-			) VALUES (
-				$1, $2, $3, $4, $4, $4,
-				$5, $6, $7, $8,
-				$9, false, false, 'pending_review',
-				$10, jsonb_set($11::jsonb, '{submittedAt}', to_jsonb(now()::text)), false, now(), now()
-			)
-		`, id, erp, level1, proposalLevelPad, name, spec, optText(in.Brand), optText(in.PartNumber), uom, proposalSource, string(raw))
-		if err != nil {
-			log.Println(err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan usulan SKU."})
+		id, code, msg := insertSkuProposal(r.Context(), db, vendorID, company, in)
+		if msg != "" {
+			writeJSON(w, code, map[string]string{"error": msg})
 			return
 		}
 		writeQuery(w, db.QueryRowContext(r.Context(), `SELECT `+proposalSelect+` FROM master_skus s WHERE s.id = $1`, id))
+	}
+}
+
+func postSkuProposalsBulk(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vendorID := r.PathValue("id")
+		var in struct {
+			Proposals []proposalIn `json:"proposals"`
+		}
+		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<20))
+		if err := dec.Decode(&in); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Form tidak valid."})
+			return
+		}
+		io.Copy(io.Discard, r.Body)
+		if len(in.Proposals) == 0 || len(in.Proposals) > maxProposalsBatch {
+			writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error": fmt.Sprintf("Kirim 1 sampai %d usulan produk per batch.", maxProposalsBatch),
+			})
+			return
+		}
+		company, code, msg := vendorCompany(r.Context(), db, vendorID)
+		if msg != "" {
+			writeJSON(w, code, map[string]string{"error": msg})
+			return
+		}
+		tx, err := db.BeginTx(r.Context(), nil)
+		if err != nil {
+			log.Println(err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan usulan SKU."})
+			return
+		}
+		defer tx.Rollback()
+		ids := make([]string, 0, len(in.Proposals))
+		for i, p := range in.Proposals {
+			id, code, msg := insertSkuProposal(r.Context(), tx, vendorID, company, p)
+			if msg != "" {
+				writeJSON(w, code, map[string]string{"error": fmt.Sprintf("Baris %d: %s", i+1, msg)})
+				return
+			}
+			ids = append(ids, id)
+		}
+		if err := tx.Commit(); err != nil {
+			log.Println(err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan usulan SKU."})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"saved": len(ids), "ids": ids})
 	}
 }
 
