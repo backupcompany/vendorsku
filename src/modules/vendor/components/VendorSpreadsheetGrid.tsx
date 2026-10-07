@@ -149,8 +149,13 @@ export const getBrandModelOptionsForRow = (
           (s.commodityName || '').toLowerCase().trim() === (row.sku.commodityName || '').toLowerCase().trim()
       );
 
+  // Once a master spec is chosen, only that spec's brands are suggested.
+  const picked = row.specification.trim()
+    ? source.filter((s) => specKey(s.generalSpec) === specKey(row.specification))
+    : [];
+
   const brandMap = new Map<string, { brandName: string; models: string[] }>();
-  source.forEach((s) => {
+  (picked.length > 0 ? picked : source).forEach((s) => {
     if (s.status === 'archived' || s.status === 'pending_review') return;
     const b = (s.defaultBrand || '').trim();
     if (!b || b.toUpperCase() === 'NB' || b.toUpperCase() === 'NP') return;
@@ -189,6 +194,21 @@ export const getBrandModelOptionsForRow = (
 
   return options;
 };
+
+export const specKey = (spec: string) => cleanCommodityName(spec || '').toLowerCase().trim();
+
+/** Distinct master specs already in the DB for this item; the vendor picks one or types their own. */
+export const getSpecOptionsForRow = (row: EditableRow): string[] => {
+  const seen = new Map<string, string>();
+  for (const s of row.candidateErpSkus || [row.sku]) {
+    const label = cleanCommodityName(s.generalSpec || '').trim();
+    if (label && !seen.has(specKey(label))) seen.set(specKey(label), label);
+  }
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, 'id', { sensitivity: 'base', numeric: true }));
+};
+
+export const masterSkuForSpec = (row: EditableRow, spec: string): MasterSku | undefined =>
+  spec.trim() ? (row.candidateErpSkus || []).find((s) => specKey(s.generalSpec) === specKey(spec)) : undefined;
 
 export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
   masterSkus,
@@ -237,6 +257,8 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
   // Active type autocomplete row
   const [activeTypeDropdownRow, setActiveTypeDropdownRow] = useState<number | null>(null);
 
+  const [activeSpecDropdownRow, setActiveSpecDropdownRow] = useState<number | null>(null);
+
   // Grid rows state
   const [rows, setRows] = useState<EditableRow[]>([]);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -279,6 +301,9 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
       if (!target.closest('.type-autocomplete-container')) {
         setActiveTypeDropdownRow(null);
       }
+      if (!target.closest('.spec-autocomplete-container')) {
+        setActiveSpecDropdownRow(null);
+      }
       if (kelompokDropdownRef.current && !kelompokDropdownRef.current.contains(target)) {
         setIsKelompokOpen(false);
       }
@@ -296,27 +321,24 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
       (s) => s.isOpenForVendor && s.status !== 'archived' && s.status !== 'pending_review' && s.isActive !== false
     );
 
-    // 2. Group by unique (commodityName + generalSpec + uom) to eliminate duplicates
+    // 2. One row per item + unit; the specs of that item become suggestions in the Spec cell.
     const skuGroups = new Map<string, MasterSku[]>();
     activeOpenSkus.forEach((sku) => {
       const cName = cleanCommodityName(sku.commodityName).toLowerCase().trim();
-      const spec = cleanCommodityName(sku.generalSpec).toLowerCase().trim();
       const uom = (sku.uom || '').toLowerCase().trim();
-      const groupKey = `${cName}||${spec}||${uom}`;
+      const groupKey = `${cName}||${uom}`;
 
       const list = skuGroups.get(groupKey) || [];
       list.push(sku);
       skuGroups.set(groupKey, list);
     });
 
-    // 3. Sort groups alphabetically by commodityName (A-Z), then generalSpec (A-Z), then uom
+    // 3. Sort groups alphabetically by commodityName (A-Z), then uom
     const sortedGroupKeys = Array.from(skuGroups.keys()).sort((keyA, keyB) => {
-      const [cNameA, specA, uomA] = keyA.split('||');
-      const [cNameB, specB, uomB] = keyB.split('||');
+      const [cNameA, uomA] = keyA.split('||');
+      const [cNameB, uomB] = keyB.split('||');
       const cmpName = cNameA.localeCompare(cNameB, 'id', { sensitivity: 'base', numeric: true });
       if (cmpName !== 0) return cmpName;
-      const cmpSpec = specA.localeCompare(specB, 'id', { sensitivity: 'base', numeric: true });
-      if (cmpSpec !== 0) return cmpSpec;
       return uomA.localeCompare(uomB, 'id', { sensitivity: 'base', numeric: true });
     });
 
@@ -376,7 +398,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
             },
             brand: sub.vendorBrand || '',
             type: sub.vendorPartNumber || '',
-            specification: sub.vendorSpecDetail || '',
+            specification: sub.vendorSpecDetail || cleanCommodityName(resolvedSku.generalSpec),
             lkppPrice: sub.lkppPrice ?? '',
             linkLkppPrice: sub.linkLkppPrice || '',
             priceListExcludeVat: priceList,
@@ -559,12 +581,21 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
         row.nettPriceExcludeVat = row.priceListExcludeVat !== '' ? vendorService.calculateNettPrice(pList, Number(disc)) : 0;
       }
 
+      if (field === 'specification') {
+        const base = masterSkuForSpec(row, String(value)) || row.candidateErpSkus?.[0];
+        if (base) {
+          row.sku = {
+            ...base,
+            commodityName: cleanCommodityName(base.commodityName),
+            generalSpec: cleanCommodityName(base.generalSpec),
+          };
+        }
+      }
+
       // Check ERP matching if brand or type or price changes
       const currentBrand = row.brand.trim();
       const currentType = row.type.trim();
-      const effectiveSpec = row.isCustomVariant && row.specification.trim()
-        ? row.specification.trim()
-        : row.sku.generalSpec;
+      const effectiveSpec = row.specification.trim();
 
       const candidates = row.candidateErpSkus && row.candidateErpSkus.length > 0
         ? row.candidateErpSkus
@@ -581,6 +612,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
       if (matchedSku) {
         row.assignedErpSku = matchedSku;
         row.sku = matchedSku;
+        if (!effectiveSpec) row.specification = cleanCommodityName(matchedSku.generalSpec);
       } else {
         row.assignedErpSku = undefined;
       }
@@ -595,8 +627,8 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
     const source = rows[targetIndex];
     const newVariantRow: EditableRow = {
       rowId: `var-${source.sku.id}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      sku: source.sku,
-      brand: source.brand || '',
+      sku: source.candidateErpSkus?.[0] || source.sku,
+      brand: '',
       type: '',
       specification: '', // Vendor will type replacement spec directly in this line
       lkppPrice: '',
@@ -710,7 +742,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
         }
 
         // 4. Search query filter
-        if (!matchesSearch(tokens, row.sku.level1, row.sku.level2, row.sku.level3, row.sku.level4, row.sku.erpCode, row.sku.commodityName, row.sku.generalSpec, row.brand, row.type, row.specification)) {
+        if (!matchesSearch(tokens, row.sku.level1, row.sku.level2, row.sku.level3, row.sku.level4, row.sku.erpCode, row.sku.commodityName, row.candidateErpSkus?.map((s) => s.generalSpec).join(' ') || row.sku.generalSpec, row.brand, row.type, row.specification)) {
           return false;
         }
 
@@ -789,15 +821,14 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
         const nett = vendorService.calculateNettPrice(priceList, discount);
         const tax = vendorService.calculatePriceWithTax(nett, 11);
 
-        // If it's a custom variant, the typed specification replaces the RS generalSpec
-        const effectiveSpec = r.isCustomVariant && r.specification.trim()
-          ? r.specification.trim()
-          : r.sku.generalSpec;
+        // A typed spec that isn't in master data is the vendor's own spec
+        const effectiveSpec = r.specification.trim() || r.sku.generalSpec;
+        const customSpec = r.specification.trim() && !masterSkuForSpec(r, r.specification) ? r.specification.trim() : undefined;
 
         const effectiveSkuId = r.assignedErpSku ? r.assignedErpSku.id : r.sku.id;
         const effectiveErpCode = r.assignedErpSku
           ? r.assignedErpSku.erpCode
-          : (r.brand.trim().toUpperCase() === 'NB' || r.brand.trim().toLowerCase() === 'nobrand' ? r.sku.erpCode : 'BARU');
+          : (!customSpec && (r.brand.trim().toUpperCase() === 'NB' || r.brand.trim().toLowerCase() === 'nobrand') ? r.sku.erpCode : 'BARU');
 
         return {
           id: r.existingId || 'sub-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
@@ -818,7 +849,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
             r.brand.trim() || 'NB',
             r.type.trim() || 'NP'
           ),
-          vendorSpecDetail: r.isCustomVariant && r.specification.trim() ? r.specification.trim() : undefined,
+          vendorSpecDetail: customSpec,
           lkppPrice: r.lkppPrice !== '' ? Number(r.lkppPrice) : undefined,
           linkLkppPrice: r.linkLkppPrice.trim() || undefined,
           priceListExcludeVat: priceList,
@@ -1621,59 +1652,92 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
                       <div className="font-bold text-slate-900 dark:text-white leading-tight">
                         {cleanCommodityName(row.sku.commodityName)}
                       </div>
-                      {row.isCustomVariant && (
+                      {row.specification.trim() && !masterSkuForSpec(row, row.specification) && (
                         <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-100 dark:bg-purple-950 dark:text-purple-300 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800">
                           Spek Baru Diajukan
                         </span>
                       )}
                     </td>
 
-                    {/* 4. Spec Umum (Spesifikasi Acuan RS / Alternatif Vendor) */}
-                    <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-850/60 align-middle">
-                      {!row.isCustomVariant ? (
-                        <>
-                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-relaxed line-clamp-3" title={cleanCommodityName(row.sku.generalSpec)}>
-                            {cleanCommodityName(row.sku.generalSpec) || '-'}
+                    {/* 4. Spek: blank by default; vendor types own spec or picks one already in master data */}
+                    {(() => {
+                      const q = specKey(row.specification);
+                      const specOptions = getSpecOptionsForRow(row).filter((s) => !q || specKey(s).includes(q));
+                      const isOpen = activeSpecDropdownRow === originalIndex;
+                      return (
+                        <td className="p-0 border-r border-slate-300 dark:border-slate-700 relative align-middle focus-within:z-30 spec-autocomplete-container">
+                          <div className="flex flex-col justify-center min-h-[44px] px-2 py-1">
+                            <textarea
+                              rows={2}
+                              value={row.specification}
+                              onFocus={() => setActiveSpecDropdownRow(originalIndex)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape' || e.key === 'Tab') setActiveSpecDropdownRow(null);
+                              }}
+                              onChange={(e) => handleCellChange(originalIndex, 'specification', e.target.value)}
+                              placeholder="Pilih / ketik spesifikasi..."
+                              className="w-full bg-transparent border-0 outline-none rounded-none text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-850 resize-y"
+                            />
+                            <div className="flex items-center justify-end gap-3 text-[11px]">
+                              {row.isCustomVariant ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveVariantRow(originalIndex)}
+                                  className="inline-flex items-center gap-1 font-semibold text-red-600 hover:text-red-800 dark:text-red-400 hover:underline"
+                                >
+                                  <Trash2 className="h-3 w-3" /> Hapus Line
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddVariantRow(originalIndex)}
+                                  className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 hover:underline"
+                                  title="Tambah line untuk menawarkan spesifikasi lain pada item ini"
+                                >
+                                  <Plus className="h-3 w-3" /> Tambah Spek Lain
+                                </button>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="mt-1.5 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => handleAddVariantRow(originalIndex)}
-                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 hover:underline"
-                              title="Ajukan penawaran varian spesifikasi atau brand baru untuk kebutuhan item ini"
-                            >
-                              <Plus className="h-3 w-3" /> Ajukan Spek Baru
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        /* If custom variant line: vendor fills their replacement specification right here */
-                        <div className="space-y-1">
-                          <textarea
-                            rows={2}
-                            value={row.specification}
-                            onChange={(e) => handleCellChange(originalIndex, 'specification', e.target.value)}
-                            placeholder="Ketik spesifikasi alternatif vendor yang diajukan..."
-                            className="w-full text-xs p-1.5 rounded border border-purple-300 bg-white text-slate-900 dark:border-purple-800 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-600 resize-y"
-                          />
-
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-purple-600 dark:text-purple-400 font-medium">
-                              Spek ini menggantikan spek RS
-                            </span>
-
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveVariantRow(originalIndex)}
-                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-800 dark:text-red-400 hover:underline"
-                            >
-                              <Trash2 className="h-3 w-3" /> Hapus Line
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </td>
+                          {isOpen && (
+                            <div className="absolute left-0 top-full z-50 w-80 max-w-sm rounded-lg border border-slate-300 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800 text-xs">
+                              {specOptions.length > 0 ? (
+                                <div className="max-h-48 overflow-y-auto space-y-1">
+                                  {specOptions.map((spec) => (
+                                    <button
+                                      key={spec}
+                                      type="button"
+                                      onClick={() => {
+                                        handleCellChange(originalIndex, 'specification', spec);
+                                        setActiveSpecDropdownRow(null);
+                                      }}
+                                      className="w-full text-left p-1.5 rounded hover:bg-blue-50 dark:hover:bg-slate-700 border border-transparent hover:border-blue-200 dark:hover:border-slate-600 font-medium text-slate-800 dark:text-slate-200 cursor-pointer"
+                                    >
+                                      {spec}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="p-2 text-center text-[11px] text-slate-500">
+                                  Spek belum ada di master data, akan diajukan sebagai spek baru.
+                                </div>
+                              )}
+                              <div className="text-[10px] text-slate-400 px-1 py-1 mt-1 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                                <span>Boleh ketik spek sendiri</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveSpecDropdownRow(null)}
+                                  className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer font-medium"
+                                >
+                                  Tutup
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })()}
 
                     {/* 5. Satuan (UOM - Locked) */}
                     <td className="px-2 py-2 text-center text-xs font-semibold text-slate-700 dark:text-slate-300 border-r-2 border-slate-400 dark:border-slate-600 bg-slate-50/70 dark:bg-slate-850/50 align-middle whitespace-nowrap">
