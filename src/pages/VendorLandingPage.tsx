@@ -201,7 +201,8 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
       setOtp({ challenge, identifier, password: loginPassword, fromSignUp: false });
       setStep('verify');
     } catch (err: any) {
-      setFormError(err.message || 'Gagal login rekanan. Periksa Email/NPWP dan password.');
+      const msg = err.message || 'Email/NPWP atau password tidak cocok.';
+      setFormError(msg);
     } finally {
       setIsLoggingIn(false);
     }
@@ -251,7 +252,12 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
       setOtp({ challenge, identifier, password: newVendorPassword, fromSignUp: true });
       setStep('verify');
     } catch (err: any) {
-      setFormError(err.message || 'Gagal menyimpan data rekanan.');
+      const msg = err.message || 'Gagal menyimpan data rekanan.';
+      setFormError(
+        /sudah dipakai/i.test(msg)
+          ? `${msg} Akun ini sudah terdaftar — masuk di tab Login, atau pakai Lupa password jika lupa sandi.`
+          : msg,
+      );
     } finally {
       setIsLoggingIn(false);
     }
@@ -523,9 +529,63 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                 </div>
               </div>
 
-              {/* ERROR ALERT */}
+              {formError && (
+                <div
+                  className="flex items-start gap-2.5 rounded-xl border border-rose-300 bg-rose-50 p-3.5 text-xs text-rose-900 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200 animate-in fade-in"
+                  role="alert"
+                >
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+                  <div className="min-w-0 space-y-1.5">
+                    <p className="font-semibold leading-relaxed">{formError}</p>
+                    {(formError.toLowerCase().includes('password') ||
+                      formError.toLowerCase().includes('tidak cocok') ||
+                      formError.toLowerCase().includes('email')) &&
+                      activeTab === 'login' &&
+                      !forgotPassword && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForgotPassword(true);
+                            setFormError('');
+                            setResetNotice('');
+                          }}
+                          className="font-bold text-[#1B3F9B] hover:underline cursor-pointer"
+                        >
+                          Lupa password? Kirim tautan reset →
+                        </button>
+                      )}
+                    {formError.toLowerCase().includes('sudah dipakai') && activeTab === 'new_vendor' && (
+                      <div className="flex flex-wrap gap-2 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('login');
+                            setLoginIdentifier(email.trim().toLowerCase());
+                            setFormError('');
+                          }}
+                          className="font-bold text-[#1B3F9B] hover:underline cursor-pointer"
+                        >
+                          Masuk dengan email ini →
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('login');
+                            setLoginIdentifier(email.trim().toLowerCase());
+                            setForgotPassword(true);
+                            setFormError('');
+                          }}
+                          className="font-bold text-[#1B3F9B] hover:underline cursor-pointer"
+                        >
+                          Lupa password?
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               {resetNotice && !formError && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300" role="status">
                   {resetNotice}
                 </div>
               )}
@@ -562,10 +622,8 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                       setForgotPassword(false);
                       setResetNotice('');
                     }}
-                    onDone={() => {
-                      setForgotPassword(false);
-                      setLoginPassword('');
-                      setResetNotice('Password baru sudah disimpan. Masuk dengan password itu.');
+                    onLinkSent={(maskedEmail) => {
+                      setResetNotice(`Tautan reset dikirim ke ${maskedEmail}. Cek email, lalu klik Atur Password Baru.`);
                     }}
                   />
                 ) : (

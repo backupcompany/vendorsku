@@ -150,10 +150,8 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
                 realm="staff"
                 initialIdentifier={identifier}
                 onCancel={() => setForgotPassword(false)}
-                onDone={() => {
-                  setForgotPassword(false);
-                  setPassword('');
-                  setResetNotice('Password baru sudah disimpan. Masuk dengan password itu.');
+                onLinkSent={(maskedEmail) => {
+                  setResetNotice(`Tautan reset dikirim ke ${maskedEmail}. Cek email, lalu klik Atur Password Baru.`);
                 }}
               />
             ) : (

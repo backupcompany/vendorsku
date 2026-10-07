@@ -8,7 +8,7 @@ interface ChangePasswordModalProps {
   accountName: string;
 }
 
-/** Ganti password = kirim link ke email. User klik email → isi password baru + konfirmasi (tanpa password lama). */
+/** Ganti password = kirim tautan ke email, lalu form password baru + konfirmasi. */
 export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   isOpen,
   onClose,
@@ -71,8 +71,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
               <div className="space-y-1">
                 <p className="font-semibold">Link sudah dikirim ke {sentTo}</p>
                 <p className="leading-relaxed">
-                  Buka email Anda, klik <strong>Atur Password Baru</strong>, lalu isi password baru dan konfirmasinya.
-                  Tidak perlu mengingat password lama.
+                  Buka email Anda, klik <strong>Atur Password Baru</strong>, lalu tetapkan password baru Anda.
                 </p>
               </div>
             </div>
@@ -89,8 +88,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             <div className="flex items-start gap-3 rounded-xl border border-[#1B3F9B]/20 bg-[#1B3F9B]/5 p-3.5 text-xs text-slate-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-slate-200">
               <MailCheck className="h-5 w-5 shrink-0 text-[#1B3F9B] dark:text-blue-300" />
               <p className="leading-relaxed">
-                Kami kirim tautan ke email akun Anda. Setelah diklik, Anda hanya mengisi
-                <strong> password baru</strong> dan <strong>konfirmasi</strong> — tanpa password lama.
+                Kami akan mengirim tautan ke email akun Anda. Buka tautan tersebut untuk menetapkan password baru.
               </p>
             </div>
             <button

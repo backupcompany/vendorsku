@@ -112,6 +112,7 @@ export default function App() {
     }
 
     return (
+      <div className="animate-in fade-in duration-500">
       <Suspense fallback={<PageLoader label="Memuat panel staf…" />}>
       <AdminErpLayout
         currentSubRoute={adminSubRoute}
@@ -122,6 +123,7 @@ export default function App() {
         onLogout={adminAuth.logout}
       />
       </Suspense>
+      </div>
     );
   }
 
@@ -139,7 +141,7 @@ export default function App() {
 
   // 3. Authenticated Vendor Portal at '/' (Halaman Utama Rekanan)
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100 flex flex-col animate-in fade-in duration-500">
       {/* Main Vendor Content with Integrated Excel Ribbon Header */}
       <main className="flex-1 w-full">
         <Suspense fallback={<PageLoader label="Memuat portal rekanan…" />}>

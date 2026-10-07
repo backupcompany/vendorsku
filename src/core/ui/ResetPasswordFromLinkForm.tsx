@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { AlertCircle, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
 import { completePasswordReset } from '../api/session';
 import { passwordProblem, passwordRules } from '../auth/signInRules';
 import { PasswordChecklist } from './PasswordChecklist';
 import { navigate } from '../router/useAppRouter';
+
+const SUCCESS_MS = 1600;
 
 /** Opened from email link ?reset=1&c=<challenge>&k=<code> — new password + confirm only. */
 export const ResetPasswordFromLinkForm: React.FC<{
@@ -16,6 +18,9 @@ export const ResetPasswordFromLinkForm: React.FC<{
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,23 +37,41 @@ export const ResetPasswordFromLinkForm: React.FC<{
     setError('');
     try {
       await completePasswordReset(challenge, code, newPassword);
+      setDone(true);
       const path = window.location.pathname.startsWith('/admin') ? '/admin' : '/';
       navigate(path, { replace: true });
-      onDone();
+      timer.current = setTimeout(() => onDone(), SUCCESS_MS);
     } catch (err: any) {
       setError(err.message || 'Gagal menyimpan password baru.');
-    } finally {
       setBusy(false);
     }
   };
 
+  if (done) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8 text-center animate-in fade-in duration-300" role="status">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 ring-4 ring-emerald-100 dark:bg-emerald-950/50 dark:ring-emerald-900/40 animate-in zoom-in-50 duration-500">
+          <CheckCircle2 className="h-9 w-9 text-emerald-600 dark:text-emerald-400" />
+        </div>
+        <div className="space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <p className="text-base font-semibold text-[#0B2361] dark:text-white">Password berhasil diubah</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Silakan masuk dengan password baru Anda…</p>
+        </div>
+        <div className="mt-1 h-1 w-36 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+          <div className="h-full rounded-full bg-emerald-600" style={{ animation: `pw-ok-bar ${SUCCESS_MS}ms linear forwards` }} />
+        </div>
+        <style>{`@keyframes pw-ok-bar { from { width: 0% } to { width: 100% } }`}</style>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={submit} className="space-y-4">
       <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-        Tautan email sudah diverifikasi. Isi password baru dan konfirmasinya — tidak perlu password lama.
+        Silakan tetapkan password baru untuk akun Portal Rekanan Anda.
       </p>
       {error && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+        <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200" role="alert">
           <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
           <span>{error}</span>
         </div>

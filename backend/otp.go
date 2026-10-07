@@ -151,12 +151,12 @@ func issueOTP(ctx context.Context, db *sql.DB, kind, actorID, email string, rese
 <p><a href="%s" style="display:inline-block;background:#1B3F9B;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Atur Password Baru</a></p>
 <p style="color:#64748b;font-size:12px">Atau salin tautan ini: %s</p>`, href, href)
 		}
-		body = fmt.Sprintf(`<div style="font-family:Arial,sans-serif;color:#0f172a;max-width:480px">
-<p>Halo,</p>
-<p>Anda meminta mengatur ulang password <b>Portal Rekanan</b>. Klik tautan di bawah, lalu isi password baru dan konfirmasinya (tidak perlu password lama).</p>
+		body = fmt.Sprintf(`<div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5;max-width:480px">
+<p>Yth. Pengguna Portal Rekanan,</p>
+<p>Kami menerima permintaan untuk mengatur ulang password akun Anda. Silakan klik tombol berikut untuk melanjutkan:</p>
 %s
-<p>Kode cadangan (jika tautan tidak terbuka): <b style="letter-spacing:4px;color:#1B3F9B">%s</b></p>
-<p>Berlaku %d menit, sekali pakai. Jika Anda tidak meminta ini, abaikan email. Akun: %s.</p>
+<p style="color:#64748b;font-size:13px">Jika tombol tidak dapat dibuka, masukkan kode berikut di halaman reset: <b style="letter-spacing:3px;color:#1B3F9B">%s</b></p>
+<p style="color:#64748b;font-size:12px">Tautan berlaku %d menit dan hanya dapat digunakan sekali. Jika Anda tidak mengajukan permintaan ini, abaikan email ini.<br/>Akun: %s</p>
 </div>`, linkBlock, code, minutes, html.EscapeString(email))
 	} else {
 		body = fmt.Sprintf(`<div style="font-family:Arial,sans-serif;color:#0f172a;max-width:480px">
