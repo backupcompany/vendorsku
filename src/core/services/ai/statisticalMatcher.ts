@@ -39,7 +39,7 @@ const STOPWORDS = new Set([
   'include', 'bag', 'for', 'with', 'without', 'and', 'the', 'di', 'dan',
   'dari', 'untuk', 'yang', 'tipe', 'type', 'model', 'ref', 'no', 'nomor',
   'set', 'isi', 'packaging', 'original', 'baru', 'new', 'lengkap', 'spesifikasi',
-  'ukuran', 'warna', 'color', 'black', 'white', 'blue', 'red', 'siloam',
+  'ukuran', 'warna', 'color', 'black', 'white', 'blue', 'red', 'catalog',
   'hospitals', 'rs', 'tutup', 'dengan', 'tanpa', 'cm', 'mm', 'kg', 'gr',
   'whole', 'straps', 'buckles', 'transport', 'pack', 'piece', 'item', 'produk',
   'barang', 'pt', 'cv', 'corp', 'tbk', 'indonesia', 'bukan', 'atau', 'non'
@@ -338,7 +338,7 @@ export function preprocessMasterSkus(skus: MasterSku[]): PreprocessedMasterSku[]
 
 /**
  * Overhauled Statistical Matcher Engine
- * Matches a vendor product entry against candidate Siloam Master SKUs.
+ * Matches a vendor product entry against candidate Master SKUs.
  * Incorporates bidirectional clinical synonyms, multi-field scoring (name, spec, taxonomy, part number, brand),
  * unit normalization, medical domain hard separation, and candidate ranking.
  */
@@ -478,9 +478,9 @@ export function calculateStatisticalMatch(
       const percent = Math.round(totalScore * 100);
       let explanation = '';
       if (exactCodeBonus > 0) {
-        explanation = `Kecocokan ${percent}% (Sangat Tinggi): Ditemukan kecocokan langsung nomor part/REF/kode ERP (${sku.erpCode}) pada katalog Siloam.`;
+        explanation = `Kecocokan ${percent}% (Sangat Tinggi): Ditemukan kecocokan langsung nomor part/REF/kode ERP (${sku.erpCode}) pada katalog.`;
       } else if (totalScore >= 0.80) {
-        explanation = `Kecocokan ${percent}% (Tinggi): Komoditas "${sku.commodityName}" cocok secara presisi dengan Master SKU Siloam (${sku.erpCode}).`;
+        explanation = `Kecocokan ${percent}% (Tinggi): Komoditas "${sku.commodityName}" cocok secara presisi dengan Master SKU (${sku.erpCode}).`;
       } else if (totalScore >= 0.50) {
         explanation = `Kecocokan ${percent}% (Sedang): Memiliki kemiripan fungsi klinis/komoditas "${sku.commodityName}". Mohon verifikasi spesifikasi detail.`;
       } else {
@@ -520,7 +520,7 @@ export function calculateStatisticalMatch(
       confidenceLevel: 'none',
       isMatched: false,
       topCandidates: [],
-      matchExplanation: 'Tidak ditemukan Master SKU Siloam yang cocok untuk produk ini di database saat ini.',
+      matchExplanation: 'Tidak ditemukan Master SKU yang cocok untuk produk ini di database saat ini.',
       breakdown: {
         nameSimilarity: 0,
         specSimilarity: 0,

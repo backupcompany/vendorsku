@@ -4,7 +4,7 @@ import { MasterSku, VendorPriceSubmission, VendorProfile } from '../types';
 
 export class VendorService {
   /**
-   * Generates Siloam 4-part SKU string:
+   * Generates 4-part SKU string:
    * [Commodity Name] ; [General Specification] ; [Brand] ; [Part / REF Number]
    */
   formatFullSkuName(
@@ -36,7 +36,7 @@ export class VendorService {
 
   private priced(submission: VendorPriceSubmission): VendorPriceSubmission {
     if (!submission.commodityName) {
-      throw new Error('Nama Komoditas/Item wajib terisi dari Master Data Siloam.');
+      throw new Error('Nama Komoditas/Item wajib terisi dari Master Data.');
     }
     if (!submission.vendorBrand.trim()) {
       throw new Error('Nama Brand/Merk wajib diisi oleh vendor.');
@@ -105,8 +105,8 @@ export class VendorService {
     });
 
     const defaultFilename = selectedCategory && selectedCategory !== 'ALL'
-      ? `Siloam_PriceList_Template_${selectedCategory.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`
-      : 'Siloam_Sourcing_Matrix_Template.xlsx';
+      ? `PriceList_Template_${selectedCategory.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`
+      : 'Sourcing_Matrix_Template.xlsx';
 
     const rows = targetSkus.map((sku) => ({
       'Kategori': sku.level1,
@@ -119,7 +119,7 @@ export class VendorService {
       'Price list EXCLUDE VAT': '',
       'Discount (%)': 0,
       'Nett Price EXCLUDE VAT': '',
-      'Coverage Rumah Sakit': 'All RS Siloam',
+      'Coverage Rumah Sakit': 'Semua Unit RS',
       'LKPP Price': '',
       'Link LKPP Price': '',
       'Kode ERP (Kunci)': sku.erpCode,
@@ -209,7 +209,7 @@ export class VendorService {
       if (!masterSku) {
         errors.push({
           row: rowNum,
-          reason: `Item "${itemNameRaw || erpCodeRaw}" tidak cocok dengan Master SKU Siloam`,
+          reason: `Item "${itemNameRaw || erpCodeRaw}" tidak cocok dengan Master SKU`,
           rawRow: row,
         });
         return;
@@ -252,11 +252,11 @@ export class VendorService {
         return;
       }
 
-      // Parse hospitals list (default: All RS Siloam)
-      let hospitalList: string[] = ['All RS Siloam'];
+      // Parse hospitals list (default: Semua Unit RS)
+      let hospitalList: string[] = ['Semua Unit RS'];
       if (hospitalsRaw) {
         if (hospitalsRaw.toLowerCase().includes('all') || hospitalsRaw.toLowerCase().includes('semua')) {
-          hospitalList = ['All RS Siloam'];
+          hospitalList = ['Semua Unit RS'];
         } else {
           const parsed = hospitalsRaw.split(/[,;\n]/).map((h) => h.trim()).filter(Boolean);
           if (parsed.length > 0) {

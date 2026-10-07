@@ -35,7 +35,7 @@ export const SkuTableView: React.FC<SkuTableViewProps> = ({
             <th className="px-4 py-3 font-semibold">Bagian 1: Nama Komoditas</th>
             <th className="px-4 py-3 font-semibold">Bagian 2: Spesifikasi Umum</th>
             <th className="px-4 py-3 font-semibold">Satuan (UoM)</th>
-            <th className="px-4 py-3 font-semibold text-right">HPS Siloam</th>
+            <th className="px-4 py-3 font-semibold text-right">HPS</th>
             <th className="px-4 py-3 font-semibold text-center">Status Vendor</th>
             <th className="px-4 py-3 font-semibold text-right">Aksi</th>
           </tr>

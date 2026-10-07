@@ -127,9 +127,6 @@ export const VendorStatusBanner: React.FC<VendorStatusBannerProps> = ({
               <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 font-medium text-[11px]">
                 {scope.level2List.length} Sub-Kategori Terpilih
               </span>
-              <span className="text-[11px] text-slate-500">
-                ({totalVisibleSkus} dari {totalAllSkus} SKU komoditas terbuka)
-              </span>
             </div>
           ) : (
             <span className="text-slate-500 italic text-[11px]">

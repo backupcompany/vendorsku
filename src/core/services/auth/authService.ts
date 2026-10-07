@@ -1,6 +1,5 @@
 import { useSessionStore } from '../../session/store';
-import { changePassword } from '../../api/session';
-import { AdminUser, VendorProfile } from '../../types';
+import { AdminUser } from '../../types';
 
 export class AuthService {
   adminLogout(): void {
@@ -21,11 +20,6 @@ export class AuthService {
 
   getCurrentVendorId(): string | null {
     return useSessionStore.getState().vendor?.id ?? null;
-  }
-
-  /** Persist a new password hash for the signed-in vendor or staff account. */
-  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
-    await changePassword(currentPassword, newPassword);
   }
 }
 

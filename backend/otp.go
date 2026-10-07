@@ -84,8 +84,34 @@ func maskEmail(email string) string {
 	return local[:keep] + strings.Repeat("•", max(len(local)-keep, 3)) + "@" + domain
 }
 
+func appBaseURL(r *http.Request) string {
+	if v := strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_APP_URL")), "/"); v != "" {
+		return v
+	}
+	if o := strings.TrimRight(strings.TrimSpace(r.Header.Get("Origin")), "/"); o != "" {
+		return o
+	}
+	proto := r.Header.Get("X-Forwarded-Proto")
+	if proto == "" {
+		if r.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	host := r.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = r.Host
+	}
+	if host == "" {
+		return ""
+	}
+	return proto + "://" + host
+}
+
 // issueOTP replaces any previous code for the account, so only the newest email works.
-func issueOTP(ctx context.Context, db *sql.DB, kind, actorID, email string, reset bool) (string, error) {
+// When reset=true and appBase is set, the email includes a one-click link (challenge+code in query).
+func issueOTP(ctx context.Context, db *sql.DB, kind, actorID, email string, reset bool, appBase string) (string, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", err
@@ -116,19 +142,37 @@ func issueOTP(ctx context.Context, db *sql.DB, kind, actorID, email string, rese
 	}
 
 	minutes := int(otpTTL.Minutes())
-	action := "masuk ke"
-	subject := "Kode verifikasi Portal Rekanan Siloam"
+	subject := "Kode verifikasi Portal Rekanan"
+	var body string
 	if reset {
-		action = "mengatur ulang password"
-		subject = "Kode atur ulang password Portal Rekanan Siloam"
-	}
-	body := fmt.Sprintf(`<div style="font-family:Arial,sans-serif;color:#0f172a;max-width:480px">
+		subject = "Atur ulang password Portal Rekanan"
+		path := "/?reset=1"
+		if kind == "staff" {
+			path = "/admin?reset=1"
+		}
+		linkBlock := ""
+		if appBase != "" {
+			href := html.EscapeString(fmt.Sprintf("%s%s&c=%s&k=%s", appBase, path, url.QueryEscape(token), code))
+			linkBlock = fmt.Sprintf(`
+<p><a href="%s" style="display:inline-block;background:#1B3F9B;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Atur Password Baru</a></p>
+<p style="color:#64748b;font-size:12px">Atau salin tautan ini: %s</p>`, href, href)
+		}
+		body = fmt.Sprintf(`<div style="font-family:Arial,sans-serif;color:#0f172a;max-width:480px">
 <p>Halo,</p>
-<p>Gunakan kode berikut untuk %s <b>Portal Rekanan Siloam Hospitals</b>:</p>
+<p>Anda meminta mengatur ulang password <b>Portal Rekanan</b>. Klik tautan di bawah, lalu isi password baru dan konfirmasinya (tidak perlu password lama).</p>
+%s
+<p>Kode cadangan (jika tautan tidak terbuka): <b style="letter-spacing:4px;color:#1B3F9B">%s</b></p>
+<p>Berlaku %d menit, sekali pakai. Jika Anda tidak meminta ini, abaikan email. Akun: %s.</p>
+</div>`, linkBlock, code, minutes, html.EscapeString(email))
+	} else {
+		body = fmt.Sprintf(`<div style="font-family:Arial,sans-serif;color:#0f172a;max-width:480px">
+<p>Halo,</p>
+<p>Gunakan kode berikut untuk masuk ke <b>Portal Rekanan</b>:</p>
 <p style="font-size:28px;font-weight:bold;letter-spacing:6px;color:#1B3F9B">%s</p>
 <p>Kode berlaku %d menit dan hanya bisa dipakai sekali. Kode lama otomatis tidak berlaku.</p>
 <p style="color:#64748b;font-size:12px">Jika Anda tidak meminta ini, abaikan email ini. Akun: %s.</p>
-</div>`, action, code, minutes, html.EscapeString(email))
+</div>`, code, minutes, html.EscapeString(email))
+	}
 	if err := sendMail(ctx, email, subject, body); err != nil {
 		db.ExecContext(context.WithoutCancel(ctx), `DELETE FROM otp_challenges WHERE id = $1`, id)
 		return "", err
@@ -165,7 +209,7 @@ func startOTP(w http.ResponseWriter, r *http.Request, db *sql.DB, kind, actorID 
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Akun belum punya email aktif untuk kode verifikasi. Hubungi Procurement Siloam."})
 		return
 	}
-	token, err := issueOTP(r.Context(), db, kind, actorID, email, false)
+	token, err := issueOTP(r.Context(), db, kind, actorID, email, false, "")
 	if errors.Is(err, errOTPCooldown) {
 		w.Header().Set("Retry-After", fmt.Sprint(int(otpResendAfter.Seconds())))
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "Kode baru sudah dikirim. Tunggu 1 menit sebelum meminta kode lagi."})

@@ -3,6 +3,7 @@ import { VendorProfile, BusinessScope } from '../core/types';
 import { OtpCodeForm } from '../core/ui/OtpCodeForm';
 import { OtpChallenge, VerifiedAccount, patchVendor, signUpVendor, startSignIn } from '../core/api/session';
 import { ForgotPasswordForm } from '../core/ui/ForgotPasswordForm';
+import { readResetLinkParams, ResetPasswordFromLinkForm } from '../core/ui/ResetPasswordFromLinkForm';
 import { fetchSkuTaxonomy, searchSkuNames, SkuHit, SkuTaxonomy } from '../core/api/catalog';
 import { useActiveHospitalCount, useOptions } from '../core/api/options';
 import {
@@ -49,7 +50,7 @@ interface VendorLandingPageProps {
   onToggleTheme: () => void;
 }
 
-// Visual category mapping to Siloam ERP Level 1 & Level 2
+// Visual category mapping to ERP Level 1 & Level 2
 interface VisualCategoryOption {
   id: string;
   name: string;
@@ -89,6 +90,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
   const [resetNotice, setResetNotice] = useState('');
+  const [resetLink, setResetLink] = useState(() => readResetLinkParams(window.location.search));
 
   // NEW VENDOR FORM FIELDS
   const [companyName, setCompanyName] = useState('');
@@ -302,10 +304,6 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
     }
   };
 
-  const matchingSkusCount = visualCategories
-    .filter((vc) => selectedCategoryIds.includes(vc.id))
-    .reduce((sum, vc) => sum + vc.count, 0);
-
   return (
     <div className="relative min-h-screen bg-[#F4F7FB] text-[#0F172A] dark:bg-[#071536] dark:text-slate-100 flex flex-col justify-between selection:bg-[#1B3F9B] selection:text-white transition-colors duration-200 overflow-x-hidden">
       
@@ -504,7 +502,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                   </div>
                 </div>
 
-                {/* Subtitle Message in Siloam Typography */}
+                {/* Subtitle message */}
                 <div className="mt-3">
                   <h2 className="text-lg sm:text-xl font-siloam font-extrabold text-[#0B2361] dark:text-white">
                     {step === 'profile' && activeTab === 'login' && 'Login Portal Rekanan'}
@@ -546,7 +544,17 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
               )}
 
               {step === 'profile' && activeTab === 'login' && (
-                forgotPassword ? (
+                resetLink ? (
+                  <ResetPasswordFromLinkForm
+                    challenge={resetLink.challenge}
+                    code={resetLink.code}
+                    onDone={() => {
+                      setResetLink(null);
+                      setLoginPassword('');
+                      setResetNotice('Password baru sudah disimpan. Masuk dengan password itu.');
+                    }}
+                  />
+                ) : forgotPassword ? (
                   <ForgotPasswordForm
                     realm="vendor"
                     initialIdentifier={loginIdentifier}
@@ -833,7 +841,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                     )}
                   </div>
 
-                  {/* Submit Button in Siloam Navy */}
+                  {/* Submit button */}
                   <div className="pt-2">
                     <button
                       type="submit"
@@ -996,7 +1004,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Summary & Enter Button in Siloam Navy */}
+                  {/* Summary & enter button */}
                   <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
                     <button
                       type="button"
@@ -1008,10 +1016,6 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                     </button>
 
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-end order-1 sm:order-2">
-                      <span className="text-[11px] text-slate-500 hidden sm:inline">
-                        Menampilkan <strong className="text-slate-900 dark:text-white">{matchingSkusCount} SKU</strong>
-                      </span>
-
                       <button
                         type="button"
                         onClick={handleFinishAndEnterMatrix}

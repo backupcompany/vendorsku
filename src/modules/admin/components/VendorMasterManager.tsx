@@ -120,14 +120,14 @@ export const VendorMasterManager: React.FC = () => {
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
               <Users className="h-4 w-4" />
-              <span>Siloam Hospitals Group · Procurement Division</span>
+              <span>Grup Rumah Sakit · Procurement Division</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Master Data Rekanan Vendor Siloam
+              Master Data Rekanan Vendor
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
               Kelola daftar rekanan resmi yang telah terdaftar di SAP/SIM-RS ERP serta verifikasi pendaftaran calon rekanan baru
-              yang mendaftar mandiri melalui portal penawaran tender Siloam.
+              yang mendaftar mandiri melalui portal penawaran tender.
             </p>
           </div>
 
@@ -176,7 +176,7 @@ export const VendorMasterManager: React.FC = () => {
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
               <span className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
                 <Building2 className="h-3.5 w-3.5" />
-                Rekanan di ERP Siloam:
+                Rekanan di ERP:
               </span>
             </div>
             <div className="font-mono text-xl font-bold text-blue-900 dark:text-blue-100 mt-1">
@@ -224,7 +224,7 @@ export const VendorMasterManager: React.FC = () => {
             <div className="font-mono text-xl font-bold text-slate-900 dark:text-white mt-1">
               {stats.total} Vendor
             </div>
-            <span className="text-[10px] text-slate-400">Database Master Siloam</span>
+            <span className="text-[10px] text-slate-400">Database Master</span>
           </div>
         </div>
       </div>
@@ -363,7 +363,7 @@ export const VendorMasterManager: React.FC = () => {
             <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
               <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
               <span>
-                Daftar vendor baru yang mendaftar mandiri via Portal Rekanan Siloam. Klik tombol{' '}
+                Daftar vendor baru yang mendaftar mandiri via Portal Rekanan. Klik tombol{' '}
                 <strong>"Promosikan ke ERP"</strong> untuk menyetujui legalitas dan menerbitkan Kode Vendor resmi.
               </span>
             </div>
@@ -582,8 +582,8 @@ export const VendorMasterManager: React.FC = () => {
             <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200">
               <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-600" />
               <span>
-                Rekanan resmi Siloam Hospitals yang telah terdaftar di database ERP pusat (SAP/SIM-RS). Vendor dalam daftar ini
-                dapat langsung mengikuti tender dan dipasangkan dengan PO Siloam.
+                Rekanan resmi Portal Vendor yang telah terdaftar di database ERP pusat (SAP/SIM-RS). Vendor dalam daftar ini
+                dapat langsung mengikuti tender dan dipasangkan dengan PO.
               </span>
             </div>
             <span className="font-bold text-blue-800 dark:text-blue-300 shrink-0">

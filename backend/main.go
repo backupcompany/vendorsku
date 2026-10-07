@@ -57,6 +57,7 @@ func main() {
 	mux.HandleFunc("POST /api/password", guard(db, anySession, postChangePassword(db)))
 	mux.HandleFunc("POST /api/password/forgot", postForgotPassword(db, "vendor"))
 	mux.HandleFunc("POST /api/staff/password/forgot", postForgotPassword(db, "staff"))
+	mux.HandleFunc("POST /api/password/forgot-self", guard(db, anySession, postForgotSelf(db)))
 	mux.HandleFunc("POST /api/password/reset", postResetPassword(db))
 
 	// A vendor only ever reaches its own id; staff reach every vendor.

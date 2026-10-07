@@ -229,19 +229,19 @@ export function useAdminVendors() {
   const exportVendorsToExcel = (type: 'all' | 'erp' | 'new') => {
     let sourceList: VendorProfile[] = [];
     let sheetName = 'Master_Vendor';
-    let fileName = 'Siloam_Master_Vendor.xlsx';
+    let fileName = 'Master_Vendor.xlsx';
 
     if (type === 'erp') {
       sourceList = erpVendorsList;
       sheetName = 'Vendor_ERP';
-      fileName = 'Siloam_Daftar_Vendor_ERP.xlsx';
+      fileName = 'Daftar_Vendor_ERP.xlsx';
     } else if (type === 'new') {
       sourceList = newVendorsList;
       sheetName = 'Vendor_Baru_Non_ERP';
-      fileName = 'Siloam_Daftar_Vendor_Baru_Non_ERP.xlsx';
+      fileName = 'Daftar_Vendor_Baru_Non_ERP.xlsx';
     } else {
       sourceList = vendors;
-      fileName = 'Siloam_Seluruh_Vendor_Rekanan.xlsx';
+      fileName = 'Seluruh_Vendor_Rekanan.xlsx';
     }
 
     const rows = sourceList.map((v, i) => ({

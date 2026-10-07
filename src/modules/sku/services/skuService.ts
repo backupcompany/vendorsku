@@ -43,7 +43,7 @@ export class SkuService {
   }
 
   /**
-   * Helper to format Siloam 4-Part SKU Name
+   * Helper to format 4-Part SKU Name
    */
   formatSkuFullName(
     commodityName: string,

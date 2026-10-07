@@ -136,7 +136,7 @@ export const VendorFormModal: React.FC<VendorFormModalProps> = ({
               Klasifikasi Master Rekanan:
             </span>
             <span className="text-[11px] text-slate-500">
-              Tentukan apakah vendor ini telah terdaftar resmi di ERP Siloam atau vendor baru non-ERP.
+              Tentukan apakah vendor ini telah terdaftar resmi di ERP atau vendor baru non-ERP.
             </span>
           </div>
 
@@ -190,7 +190,7 @@ export const VendorFormModal: React.FC<VendorFormModalProps> = ({
           {isExisting && (
             <div>
               <label className="font-bold text-slate-700 dark:text-slate-200 block mb-1">
-                Kode Vendor ERP Siloam (SAP/SIM-RS) <span className="text-red-500">*</span>
+                Kode Vendor ERP (SAP/SIM-RS) <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"

@@ -40,7 +40,7 @@ export function erpGeneralSpec(...specs: string[]): string {
   const parts = specs
     .flatMap((s) => s.split(';').map((p) => p.trim()))
     .filter((s) => s && !PLACEHOLDERS.has(s.toUpperCase()));
-  return parts.length > 0 ? parts.join(' ; ') : 'Standar Siloam';
+  return parts.length > 0 ? parts.join(' ; ') : 'Standar Katalog';
 }
 
 /** Reads the first sheet of an ERP Master Product Catalog export; bad rows are reported, never patched up. */

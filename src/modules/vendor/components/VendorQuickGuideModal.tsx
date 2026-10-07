@@ -27,7 +27,7 @@ export const VendorQuickGuideModal: React.FC<VendorQuickGuideModalProps> = ({
                 Panduan Singkat 3 Langkah Pengisian Harga
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Khusus Calon Rekanan & Distributor Resmi Siloam Hospitals Group
+                Khusus Calon Rekanan & Distributor Resmi Grup Rumah Sakit
               </p>
             </div>
           </div>
@@ -54,7 +54,7 @@ export const VendorQuickGuideModal: React.FC<VendorQuickGuideModalProps> = ({
               </span>
             </div>
             <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
-              Telusuri item komoditas SKU yang sesuai dengan barang dagang Anda pada daftar SKU Siloam. Gunakan filter kategori atau kotak pencarian utama di bagian atas.
+              Telusuri item komoditas SKU yang sesuai dengan barang dagang Anda pada daftar SKU. Gunakan filter kategori atau kotak pencarian utama di bagian atas.
             </p>
           </div>
 

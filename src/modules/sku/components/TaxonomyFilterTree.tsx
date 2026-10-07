@@ -38,8 +38,7 @@ export const TaxonomyFilterTree: React.FC<TaxonomyFilterTreeProps> = ({
             Filter Taksonomi Berjenjang (4 Level)
           </h2>
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            Menampilkan <span className="font-mono font-medium text-slate-700 dark:text-slate-200">{totalFiltered}</span> dari{' '}
-            <span className="font-mono">{totalSkus}</span> SKU
+            Filter taksonomi aktif
           </span>
         </div>
 

@@ -73,7 +73,7 @@ export const ErpVendorUploadModal: React.FC<ErpVendorUploadModalProps> = ({
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Template_Vendor_ERP');
-    XLSX.writeFile(wb, 'Template_Import_Vendor_ERP_Siloam.xlsx');
+    XLSX.writeFile(wb, 'Template_Import_Vendor_ERP.xlsx');
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,7 +176,7 @@ export const ErpVendorUploadModal: React.FC<ErpVendorUploadModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Upload & Import Master Vendor dari ERP Siloam"
+      title="Upload & Import Master Vendor dari ERP"
       subtitle="Sinkronisasi daftar rekanan resmi terdaftar dari sistem SAP / SIM-RS ke dalam portal pengadaan"
       maxWidth="4xl"
     >

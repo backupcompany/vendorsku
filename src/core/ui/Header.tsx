@@ -24,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/90 bg-white/95 backdrop-blur-md transition-colors dark:border-slate-800 dark:bg-[#071536]/95">
       <div className="w-full flex h-16 items-center justify-between px-3 sm:px-5 lg:px-6">
-        {/* Zone 1: Official Siloam Logo & Wordmark */}
+        {/* Zone 1: Brand logo & Wordmark */}
         <div className="flex items-center gap-3">
           <SiloamLogo size="sm" variant="full" />
           <span className="hidden lg:inline-flex items-center gap-1 rounded-full bg-[#1B3F9B]/10 px-2.5 py-0.5 text-[10px] font-siloam font-bold text-[#1B3F9B] dark:bg-blue-900/40 dark:text-blue-300 border border-[#1B3F9B]/20 ml-1">

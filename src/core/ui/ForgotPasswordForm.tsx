@@ -90,7 +90,7 @@ export const ForgotPasswordForm: React.FC<{
   return (
     <form onSubmit={submit} className="space-y-4">
       <p className="text-xs text-slate-600 dark:text-slate-300">
-        Kami mengirim kode ke email akun. Setelah kode terverifikasi, Anda membuat password baru lalu masuk seperti biasa.
+        Kami kirim tautan (atau kode) ke email akun. Klik tautan di email untuk isi password baru + konfirmasi saja — tanpa password lama.
       </p>
       {error && (
         <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
@@ -162,7 +162,7 @@ export const ForgotPasswordForm: React.FC<{
         disabled={busy}
         className="w-full rounded-xl bg-[#1B3F9B] py-2.5 text-xs font-bold text-white disabled:opacity-60 cursor-pointer"
       >
-        {busy ? 'Memproses…' : challenge ? 'Simpan password baru' : 'Kirim kode ke email'}
+        {busy ? 'Memproses…' : challenge ? 'Simpan password baru' : 'Kirim link ke email'}
       </button>
       <div className="flex items-center justify-between text-xs">
         <button type="button" onClick={onCancel} className="inline-flex items-center gap-1.5 font-semibold text-slate-600 cursor-pointer">

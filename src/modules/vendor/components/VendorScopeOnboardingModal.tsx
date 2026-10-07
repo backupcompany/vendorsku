@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Modal } from '../../../core/ui/Modal';
 import { Button } from '../../../core/ui/Button';
 import { BusinessScope, VendorProfile } from '../types';
-import { level2NamesOf, scopeSkuCount, searchSkuNames, SkuHit, useSkuTaxonomy } from '../../../core/api/catalog';
+import { level2NamesOf, searchSkuNames, SkuHit, useSkuTaxonomy } from '../../../core/api/catalog';
 import {
   Sparkles,
   Search,
@@ -109,12 +109,6 @@ export const VendorScopeOnboardingModal: React.FC<VendorScopeOnboardingModalProp
     );
   };
 
-  // Calculate number of matching SKUs based on current selection
-  const matchingSkusCount = useMemo(
-    () => scopeSkuCount(taxonomy, selectedLevel1, selectedLevel2List),
-    [taxonomy, selectedLevel1, selectedLevel2List],
-  );
-
   const handleSave = () => {
     if (!selectedLevel1) {
       alert('Pilih salah satu Kategori Level 1.');
@@ -181,7 +175,7 @@ export const VendorScopeOnboardingModal: React.FC<VendorScopeOnboardingModalProp
           {productHintQuery.trim().length >= 2 && (
             <div className="space-y-1.5 pt-1">
               <div className="text-[11px] font-semibold text-indigo-900 dark:text-indigo-300">
-                Petunjuk Rekomendasi Kategori Siloam:
+                Petunjuk Rekomendasi Kategori:
               </div>
 
               {productSearchSuggestions.length > 0 ? (
@@ -335,7 +329,7 @@ export const VendorScopeOnboardingModal: React.FC<VendorScopeOnboardingModalProp
             <span className="font-semibold text-blue-600 dark:text-blue-400">
               {selectedLevel2List.length} Sub-kategori
             </span>{' '}
-            ({matchingSkusCount} SKU komoditas cocok di katalog)
+            
           </div>
 
           <div className="flex items-center gap-2">

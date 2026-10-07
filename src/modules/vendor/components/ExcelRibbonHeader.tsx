@@ -40,8 +40,6 @@ interface ExcelRibbonHeaderProps {
   onBulkSave: (submissions: VendorPriceSubmission[]) => Promise<void>;
 }
 
-const OFFICIAL_SILOAM_LOGO_URL = 'https://www.siloamhospitals.com/assets/logo-new-DU4qZWaH.png';
-
 export const ExcelRibbonHeader: React.FC<ExcelRibbonHeaderProps> = ({
   vendor,
   allVendors,
@@ -77,17 +75,8 @@ export const ExcelRibbonHeader: React.FC<ExcelRibbonHeaderProps> = ({
       {/* 1. EXCEL TITLE BAR (~36px) - ULTRA COMPACT SINGLE ROW    */}
       {/* ======================================================== */}
       <div className="bg-[#0B2361] dark:bg-[#071536] text-white px-3 sm:px-4 py-1.5 flex items-center justify-between border-b border-[#1B3F9B]/50 transition-colors">
-        {/* Left: Siloam Logo + File Title + Auto-Save Status */}
+        {/* Left: File Title + Auto-Save Status */}
         <div className="flex items-center gap-2.5">
-          <img
-            src={OFFICIAL_SILOAM_LOGO_URL}
-            alt="Siloam Hospitals"
-            className="h-6 sm:h-7 w-auto object-contain shrink-0"
-            referrerPolicy="no-referrer"
-          />
-          <div className="h-4 w-px bg-white/20 hidden sm:block" />
-
-          {/* Document Title styled like Excel Workbook */}
           <div className="flex items-center gap-1.5">
             <FileSpreadsheet className="h-4 w-4 text-[#E5A823] shrink-0" />
             <span className="text-xs font-siloam font-bold text-white tracking-wide truncate max-w-[160px] sm:max-w-none">
@@ -252,9 +241,7 @@ export const ExcelRibbonHeader: React.FC<ExcelRibbonHeaderProps> = ({
             >
               <Eye className="h-3 w-3" />
               <span>
-                {bypassScopeFilter
-                  ? `Semua SKU (${totalAllSkus})`
-                  : `Scope Anda (${totalVisibleSkus} SKU)`}
+                {bypassScopeFilter ? 'Semua SKU' : 'Scope Anda'}
               </span>
             </button>
           )}

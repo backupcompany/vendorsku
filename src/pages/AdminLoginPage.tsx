@@ -4,6 +4,7 @@ import { AdminUser } from '../core/types';
 import { OtpChallenge, startSignIn } from '../core/api/session';
 import { OtpCodeForm } from '../core/ui/OtpCodeForm';
 import { ForgotPasswordForm } from '../core/ui/ForgotPasswordForm';
+import { readResetLinkParams, ResetPasswordFromLinkForm } from '../core/ui/ResetPasswordFromLinkForm';
 import {
   ShieldCheck,
   Lock,
@@ -39,6 +40,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
   const [otp, setOtp] = useState<OtpChallenge | null>(null);
   const [forgotPassword, setForgotPassword] = useState(false);
   const [resetNotice, setResetNotice] = useState('');
+  const [resetLink, setResetLink] = useState(() => readResetLinkParams(window.location.search));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +48,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
 
     const cleanId = identifier.trim().toLowerCase();
     if (!cleanId) {
-      setErrorMsg('Masukkan username atau email staf Siloam.');
+      setErrorMsg('Masukkan username atau email staf internal.');
       return;
     }
     if (cleanId.includes('@') ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanId) : /\s/.test(cleanId)) {
@@ -116,14 +118,24 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
                 <ShieldCheck className="h-7 w-7" />
               </div>
               <h1 className="text-xl sm:text-2xl font-siloam font-bold text-[#0B2361] dark:text-white">
-                Login Staf Internal Siloam
+                Login Staf Internal
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Akses terbatas untuk Evaluator Tender, Procurement Officer & Manajemen RS Siloam
+                Akses terbatas untuk Evaluator Tender, Procurement Officer & Manajemen RS
               </p>
             </div>
 
-            {otp ? (
+            {resetLink ? (
+              <ResetPasswordFromLinkForm
+                challenge={resetLink.challenge}
+                code={resetLink.code}
+                onDone={() => {
+                  setResetLink(null);
+                  setPassword('');
+                  setResetNotice('Password baru sudah disimpan. Masuk dengan password itu.');
+                }}
+              />
+            ) : otp ? (
               <OtpCodeForm
                 challenge={otp}
                 onVerified={(account) => account.kind === 'staff' && onLoginSuccess(account.staff)}
@@ -177,7 +189,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
                     maxLength={120}
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="nama@siloamhospitals.com atau username"
+                    placeholder="email atau username"
                     className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#1B3F9B] focus:outline-none focus:ring-2 focus:ring-[#1B3F9B]/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     required
                   />
@@ -225,7 +237,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
                   <span>Memverifikasi Staf...</span>
                 ) : (
                   <>
-                    <span>Masuk ke Panel ERP Siloam</span>
+                    <span>Masuk ke Panel ERP</span>
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
@@ -249,14 +261,14 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
 
           {/* Footer note */}
           <div className="text-center text-[11px] text-slate-500 dark:text-slate-400">
-            Sistem Sourcing & Manajemen Pengadaan Medis Siloam Hospitals Group © 2026
+            Sistem Sourcing & Manajemen Pengadaan Medis © 2026
           </div>
         </div>
       </main>
 
       {/* Corporate footer */}
       <footer className="w-full border-t border-slate-200/80 bg-white/80 py-3 px-4 text-center text-xs text-slate-500 dark:border-slate-800 dark:bg-[#091838]/80 dark:text-slate-400">
-        PT Siloam International Hospitals Tbk · Layanan Pengadaan Medis Terpusat
+        Portal Pengadaan Vendor · Layanan Pengadaan Medis Terpusat
       </footer>
     </div>
   );

@@ -223,7 +223,7 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
     }
 
     setIsProcessing(true);
-    setProcessingMsg(`Menghitung kecocokan komoditas terhadap seluruh ${referenceSkus.length} Master SKU Siloam ERP...`);
+    setProcessingMsg(`Menghitung kecocokan komoditas terhadap Master SKU ERP...`);
 
     setTimeout(() => {
       try {
@@ -471,8 +471,8 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
           priceValidUntil: vendor.commercialTerms?.priceValidUntil || '2026-12-31',
           installedHospitals:
             vendor.commercialTerms?.coverageType === 'selected_units'
-              ? vendor.commercialTerms?.coveredHospitalUnits || ['All RS Siloam']
-              : ['All RS Siloam'],
+              ? vendor.commercialTerms?.coveredHospitalUnits || ['Semua Unit RS']
+              : ['Semua Unit RS'],
           kemenkesLicense: item.rawKemenkes || undefined,
 
           // Metadata AI Match
@@ -550,7 +550,7 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
       isOpen={isOpen}
       onClose={handleClose}
       title="Upload Price List Cerdas dengan AI (PDF, Excel, CSV)"
-      subtitle="AI otomatis mendeteksi struktur kolom, memetakan tabel, dan mencocokkan pasangan SKU Siloam berdasarkan skor statistik."
+      subtitle="AI otomatis mendeteksi struktur kolom, memetakan tabel, dan mencocokkan pasangan SKU berdasarkan skor statistik."
       maxWidth="5xl"
     >
       <div className="space-y-5">
@@ -615,7 +615,7 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
             <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <Database className="h-4 w-4 text-blue-600 shrink-0" />
             <span>
-              Basis Data Referensi: <strong>{referenceSkus.length} Master SKU Terdaftar di Siloam ERP</strong> (100% Seluruh Divisi &amp; Komoditas Terkoneksi)
+              Basis data referensi Master SKU ERP siap dipakai untuk pencocokan.
             </span>
           </div>
           <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
@@ -717,7 +717,7 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
               </div>
               <ul className="list-disc list-inside space-y-1 pl-1 text-[11px] text-slate-500 dark:text-slate-400">
                 <li>AI akan membaca dan mendeteksi kolom nama barang, spesifikasi, merk, dan harga satuan penawaran.</li>
-                <li>Sistem menghitung <strong>Tingkat Kecocokan Statistik (Confidence Level)</strong> terhadap database Siloam Master SKU.</li>
+                <li>Sistem menghitung <strong>Tingkat Kecocokan Statistik (Confidence Level)</strong> terhadap database Master SKU.</li>
                 <li>Baris dengan kecocokan tinggi dapat langsung dikonfirmasi otomatis, sedangkan baris dengan skor sedang/rendah dapat dikonfirmasi satu per satu oleh vendor.</li>
               </ul>
             </div>
@@ -1200,7 +1200,7 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
 
                         <ArrowRight className="h-4 w-4 text-slate-400 shrink-0" />
 
-                        {/* Matched Siloam SKU Snippet */}
+                        {/* Matched SKU Snippet */}
                         <div className="min-w-0 max-w-[200px] sm:max-w-[260px] text-left">
                           {sku ? (
                             <>
@@ -1249,7 +1249,7 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
                             setSkuSearchQuery(item.rawItemName);
                           }}
                           className="text-xs"
-                          title="Ganti Pasangan Master SKU Siloam"
+                          title="Ganti Pasangan Master SKU"
                         >
                           Ganti SKU
                         </Button>
@@ -1345,7 +1345,7 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
           </div>
         )}
 
-        {/* Modal: Ganti Pasangan Master SKU Siloam */}
+        {/* Modal: Ganti Pasangan Master SKU */}
         {replaceTargetItemId && (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
             <div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800 space-y-3">
@@ -1353,10 +1353,10 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     <Database className="h-4 w-4 text-blue-600" />
-                    <span>Pilih Master SKU Siloam Pengganti</span>
+                    <span>Pilih Master SKU Pengganti</span>
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Mencari di seluruh <strong>{referenceSkus.length} Master SKU</strong> Siloam ERP (100% Seluruh Katalog Terbuka)
+                    Mencari di katalog Master SKU ERP
                   </p>
                 </div>
                 <button
@@ -1381,7 +1381,7 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-slate-500 px-0.5">
-                <span>Hasil Pencarian ({searchResultsSkus.length} SKU):</span>
+                <span>Hasil Pencarian:</span>
                 <span>Klik untuk langsung mengganti</span>
               </div>
 
@@ -1409,7 +1409,7 @@ export const AiDocumentPriceListUploaderModal: React.FC<AiDocumentPriceListUploa
 
                 {searchResultsSkus.length === 0 && (
                   <div className="text-center py-6 text-xs text-slate-400">
-                    Tidak ditemukan Master SKU Siloam dengan kata kunci "{skuSearchQuery}".
+                    Tidak ditemukan Master SKU dengan kata kunci "{skuSearchQuery}".
                   </div>
                 )}
               </div>

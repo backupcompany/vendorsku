@@ -1,5 +1,5 @@
 /**
- * Core Type Definitions for Siloam Hospitals SKU Price List & Mapping Portal
+ * Core Type Definitions for Vendor SKU Price List & Mapping Portal
  */
 
 export interface MasterSku {
@@ -24,7 +24,7 @@ export interface MasterSku {
   tenderId?: string;
   status: 'active' | 'archived' | 'pending_review';
   
-  // ERP Metadata from Siloam System
+  // ERP Metadata
   documentType?: string; // e.g. 'pr', 'cpr'
   itemId?: string; // e.g. '490110027', '710000019'
   faCategory?: string; // e.g. '720000010'
@@ -79,7 +79,7 @@ export interface VendorPriceSubmission {
   priceValidUntil: string; // YYYY-MM-DD
   
   // Coverage Rumah Sakit Terpasang / Target Unit Coverage
-  installedHospitals?: string[]; // e.g. ['Siloam Lippo Village', 'Siloam Kebon Jeruk', ...]
+  installedHospitals?: string[]; // e.g. unit RS
 
   // Regulatory & Technical Compliance
   kemenkesLicense?: string; // Nomor AKD/AKL
@@ -166,16 +166,16 @@ export interface CommercialTerms {
   priceValidUntil: string; // Batas Akhir Berlaku (e.g. '2026-12-31')
   commitmentPeriodMonths?: number; // Durasi Komitmen (e.g. 12 bulan)
 
-  // Cakupan & Distribusi Rumah Sakit Siloam
+  // Cakupan & Distribusi Rumah Sakit
   coverageType: 'all_units' | 'selected_units'; // Seluruh RS aktif atau unit tertentu
-  coveredHospitalUnits: string[]; // Daftar Unit RS Siloam yang di-cover
+  coveredHospitalUnits: string[]; // Daftar Unit RS yang di-cover
 
   // Ketentuan Umum Komersial & Pengiriman
   currency: string; // IDR
   taxCondition: 'exclude_vat_11' | 'include_vat_11'; // Exclude / Include PPN 11%
   standardLeadTimeDays: number; // Standar Lead Time Pengiriman (Hari)
   standardMoq: number; // Standar Minimum Order Quantity
-  deliveryTerm: string; // Syarat Penyerahan Barang (e.g. Franco RS Siloam)
+  deliveryTerm: string; // Syarat Penyerahan Barang (e.g. Franco RS)
   paymentTerm: string; // Syarat Pembayaran (e.g. TOP 30 Hari)
   warrantyGeneral: string; // Garansi & Layanan Purna Jual
   additionalNotes?: string; // Catatan Tambahan Penawaran
@@ -212,7 +212,7 @@ export interface TenderEvent {
   description: string;
   submissionDeadline: string;
   status: 'draft' | 'open' | 'evaluation' | 'completed';
-  targetUnits: string[]; // e.g. ['Siloam Kebon Jeruk', 'Siloam Lippo Village', 'All Siloam Units']
+  targetUnits: string[]; // e.g. unit RS
   totalSkus: number;
   createdAt: string;
 }
@@ -265,7 +265,7 @@ export type IndonesiaIsland =
 export interface HospitalUnit {
   id: string; // e.g. "shlv" or "hosp-1"
   code: string; // e.g. "SHLV", "MRCCC", "SHKJ"
-  name: string; // e.g. "Siloam Hospitals Lippo Village"
+  name: string; // e.g. nama unit RS
   city: string; // e.g. "Tangerang", "Jakarta Barat", "Surabaya"
   province: string; // e.g. "Banten", "DKI Jakarta", "Jawa Timur"
   island: IndonesiaIsland | string; // e.g. "Jawa", "Sumatera", etc.

@@ -63,7 +63,7 @@ export const AiSkuMatcherModal: React.FC<AiSkuMatcherModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="AI Smart SKU Matcher & Parser"
-      subtitle="Tempelkan deskripsi mentah katalog vendor Anda untuk dipisahkan menjadi 4 bagian standar Siloam"
+      subtitle="Tempelkan deskripsi mentah katalog vendor Anda untuk dipisahkan menjadi 4 bagian standar katalog"
       maxWidth="2xl"
     >
       <div className="space-y-4">
@@ -107,7 +107,7 @@ export const AiSkuMatcherModal: React.FC<AiSkuMatcherModalProps> = ({
             disabled={!rawText.trim()}
             icon={<Sparkles className="h-4 w-4" />}
           >
-            Analisis & Petakan ke Taksonomi Siloam
+            Analisis & Petakan ke Taksonomi Katalog
           </Button>
         </div>
 
@@ -117,7 +117,7 @@ export const AiSkuMatcherModal: React.FC<AiSkuMatcherModalProps> = ({
             <div className="flex items-center justify-between border-b border-blue-200 pb-2 dark:border-blue-900 text-xs">
               <span className="font-semibold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
                 <Check className="h-4 w-4 text-emerald-600" />
-                Hasil Ekstraksi Standar Siloam (4 Bagian)
+                Hasil Ekstraksi Standar Katalog (4 Bagian)
               </span>
               <span className="text-[11px] font-mono text-slate-500">
                 Skor Akurasi: {Math.round(result.confidenceScore * 100)}%
@@ -166,7 +166,7 @@ export const AiSkuMatcherModal: React.FC<AiSkuMatcherModalProps> = ({
             {/* Recommended Taxonomy Match */}
             <div className="rounded-lg bg-white p-2.5 border border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-xs">
               <span className="text-[10px] font-semibold text-slate-400 uppercase">
-                Rekomendasi Jalur Taksonomi 4-Level Siloam:
+                Rekomendasi Jalur Taksonomi 4-Level:
               </span>
               <div className="mt-1 font-medium text-blue-700 dark:text-blue-300">
                 {result.level1} › {result.level2} › {result.level3} › {result.level4}
@@ -179,7 +179,7 @@ export const AiSkuMatcherModal: React.FC<AiSkuMatcherModalProps> = ({
             {/* Formatted Preview */}
             <div className="font-mono text-xs text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 p-2 rounded">
               <span className="text-slate-400 font-sans text-[10px] block mb-1">
-                Preview Format Final Siloam:
+                Preview Format Final:
               </span>
               {result.commodityName} ; {result.generalSpec} ; {result.vendorBrand} ; {result.vendorPartNumber}
             </div>

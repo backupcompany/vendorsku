@@ -121,7 +121,7 @@ export const ExcelTemplateExportImport: React.FC<ExcelTemplateExportImportProps>
                 <span>Baris Lolos Validasi ({validItems.length} Item)</span>
               </div>
               <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
-                Item berhasil dipetakan ke Master SKU Siloam beserta kalkulasi otomatis Price List, Diskon, dan Nett Price.
+                Item berhasil dipetakan ke Master SKU beserta kalkulasi otomatis Price List, Diskon, dan Nett Price.
               </p>
             </div>
 
@@ -131,7 +131,7 @@ export const ExcelTemplateExportImport: React.FC<ExcelTemplateExportImportProps>
                 <span>Baris Ditolak / Perlu Perbaikan ({errors.length} Item)</span>
               </div>
               <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                Baris dilewati karena nama item tidak dikenali di katalog Siloam atau harga kosong.
+                Baris dilewati karena nama item tidak dikenali di katalog atau harga kosong.
               </p>
             </div>
           </div>

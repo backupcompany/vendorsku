@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { AdminUser, VendorProfile } from '../types';
 
 // Wipe what older builds left in the browser; nothing is read back.
-for (const key of ['siloam_active_vendor_id', 'siloam_active_admin_session', 'siloam_vendor_onboarded', 'siloam_theme']) {
+for (const key of ['siloam_active_vendor_id', 'siloam_active_admin_session', 'siloam_vendor_onboarded', 'app_theme']) {
   localStorage.removeItem(key);
 }
 indexedDB.deleteDatabase('siloam_sku_portal_db');

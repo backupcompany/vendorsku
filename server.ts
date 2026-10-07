@@ -201,8 +201,8 @@ app.post('/api/ai/parse-sku', async (req, res) => {
   }
 
   try {
-    const prompt = `Anda adalah sistem AI Master Data SKU Rumah Sakit Siloam (Siloam Hospitals Group).
-Aturan penamaan SKU Siloam:
+    const prompt = `Anda adalah sistem AI Master Data SKU Rumah Sakit.
+Aturan penamaan SKU:
 Nama SKU terdiri dari 4 bagian dipisahkan titik koma:
 [Commodity Name] ; [General Specification] ; [Brand] ; [Part / REF / Catalog Number]
 
@@ -215,8 +215,8 @@ Dan taksonomi 4-level:
 Ekstrak teks produk vendor mentah berikut ke dalam format JSON terstruktur:
 Teks Vendor: "${rawText}"
 
-Contoh konteks SKU Siloam yang relevan:
-${catalogSummary || 'Katalog Siloam mencakup BMHP, Spuit, Infuset, Jarum, Kasa, Kateter, Handschoen/Gloves, Paracetamol, Antibakteri, Stetoskop'}
+Contoh konteks SKU yang relevan:
+${catalogSummary || 'Katalog mencakup BMHP, Spuit, Infuset, Jarum, Kasa, Kateter, Handschoen/Gloves, Paracetamol, Antibakteri, Stetoskop'}
 
 Kembalikan HANYA format JSON valid tanpa markdown atau backticks:
 {
@@ -282,7 +282,7 @@ app.post('/api/ai/tender-analysis', async (req, res) => {
   }
 
   try {
-    const prompt = `Anda adalah Konsultan Pengadaan Medis Siloam Hospitals Group.
+    const prompt = `Anda adalah Konsultan Pengadaan Medis.
 Evaluasi penawaran harga vendor untuk SKU: "${skuName}".
 
 Data Penawaran Vendor:
@@ -357,7 +357,7 @@ app.post('/api/ai/map-columns', async (req, res) => {
   }
 
   try {
-    const prompt = `Anda adalah sistem AI integrasi data pengadaan Siloam Hospitals Group.
+    const prompt = `Anda adalah sistem AI integrasi data pengadaan rumah sakit.
 Tugas: Menganalisa struktur kolom tabel dari dokumen price list vendor (${fileName || 'dokumen vendor'}).
 
 Daftar Kolom Terdeteksi di Dokumen:
@@ -366,7 +366,7 @@ ${JSON.stringify(columns, null, 2)}
 Contoh Baris Data (maksimal 3 baris):
 ${JSON.stringify(sampleRows?.slice(0, 3) || [], null, 2)}
 
-Petakan kolom-kolom di atas ke field standar Siloam berikut:
+Petakan kolom-kolom di atas ke field standar katalog berikut:
 - productNameCol: Kolom yang memuat nama produk / komoditas (wajib)
 - specCol: Kolom spesifikasi teknis / ukuran / deskripsi
 - brandCol: Kolom merk / brand / pabrikan
@@ -432,7 +432,7 @@ app.post('/api/ai/parse-pdf-document', async (req, res) => {
   }
 
   try {
-    const prompt = `Anda adalah asisten AI ekstraksi data price list Siloam Hospitals.
+    const prompt = `Anda adalah asisten AI ekstraksi data price list.
 Ekstrak seluruh tabel daftar produk dan penawaran harga dari dokumen PDF price list ini (${fileName || 'price list vendor'}).
 Maksimal ekstrak hingga 1.000 baris data.
 
@@ -506,10 +506,10 @@ app.post('/api/ai/match-skus', async (req, res) => {
       part: c.defaultPartNumber,
     }));
 
-    const prompt = `Anda adalah AI Medical Procurement Sourcing Specialist Siloam Hospitals Group.
-Tugas: Memadankan (matching) setiap produk yang diupload vendor dengan Master SKU Siloam yang relevan dari daftar kandidat Master SKU berikut.
+    const prompt = `Anda adalah AI Medical Procurement Sourcing Specialist.
+Tugas: Memadankan (matching) setiap produk yang diupload vendor dengan Master SKU yang relevan dari daftar kandidat Master SKU berikut.
 
-Daftar Master SKU Siloam Tersedia (${compactCandidates.length} SKU):
+Daftar Master SKU Tersedia (${compactCandidates.length} SKU):
 ${JSON.stringify(compactCandidates, null, 1)}
 
 Daftar Produk yang Diunggah Vendor:
@@ -517,7 +517,7 @@ ${JSON.stringify(items, null, 1)}
 
 ATURAN KRUSIAL PENCOCOKAN:
 1. Ketelitian Medis: Produk medis (seperti Defibrillator, Ventilator, KED Extrication Device, Spuit, Kateter, Infus) DILARANG KERAS dipadankan dengan produk non-medis / makanan / pantry / umum (seperti Gelas Puding, Kotak Snack, ATK, Sabun).
-2. Jika suatu produk vendor TIDAK memiliki padanan yang mirip atau setara di daftar Master SKU, kembalikan matchedSkuId: null, confidenceScore: 0.0, confidenceLevel: "none", dan berikan matchExplanation yang jelas bahwa SKU ini belum tersedia di katalog Siloam.
+2. Jika suatu produk vendor TIDAK memiliki padanan yang mirip atau setara di daftar Master SKU, kembalikan matchedSkuId: null, confidenceScore: 0.0, confidenceLevel: "none", dan berikan matchExplanation yang jelas bahwa SKU ini belum tersedia di katalog.
 3. Tingkat Confidence:
    - "high" (>= 0.80): Komoditas sama persis atau sinonim klinis langsung (misal: Defibrillator -> Alat Kejut Jantung / Defib, KED -> Kendrick Extrication Device, Ventilator -> Portable Ventilator).
    - "medium" (0.50 - 0.79): Kategori dan fungsi dasar sama namun ada perbedaan kapasitas, ukuran, atau merk.
@@ -577,7 +577,7 @@ app.post('/api/ai/standardize-catalog', async (req, res) => {
   }
 
   try {
-    const prompt = `Anda adalah Catalog Management Siloam Hospitals.
+    const prompt = `Anda adalah Catalog Management.
 Tugas: standarisasi data produk vendor menjadi e-katalog rumah sakit yang singkat dan konsisten.
 JANGAN menghapus informasi penting untuk pemilihan produk (material, ukuran, standar/sertifikasi, AQL, tipe).
 Jangan inventarisasi data yang tidak ada di input.
@@ -710,7 +710,7 @@ async function startServer() {
 
   const host = process.env.HOST || '127.0.0.1';
   app.listen(Number(port), host, () => {
-    console.log(`Siloam Vendor SKU Portal server running on ${host}:${port}`);
+    console.log(`Vendor SKU Portal server running on ${host}:${port}`);
   });
 }
 

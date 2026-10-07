@@ -154,19 +154,16 @@ export function startPasswordReset(realm: SessionRealm, identifier: string): Pro
   return post(realm === 'staff' ? '/api/staff/password/forgot' : '/api/password/forgot', { identifier }, otpChallengeSchema);
 }
 
+/** Logged-in "Ganti Password": email link to session account (no old password). */
+export function requestPasswordResetLink(): Promise<OtpChallenge> {
+  return post('/api/password/forgot-self', {}, otpChallengeSchema);
+}
+
 export async function completePasswordReset(challenge: string, code: string, newPassword: string): Promise<void> {
   try {
     await http.post('/api/password/reset', { challenge, code, newPassword });
   } catch (err) {
     throw apiError(err, 'Gagal mengatur password baru.');
-  }
-}
-
-export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  try {
-    await http.post('/api/password', { currentPassword, newPassword });
-  } catch (err) {
-    throw apiError(err, 'Gagal mengubah password.');
   }
 }
 

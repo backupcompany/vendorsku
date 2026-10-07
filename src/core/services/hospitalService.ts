@@ -254,7 +254,7 @@ class HospitalService {
     const templateData = [
       {
         'Kode Unit': 'SHLV',
-        'Nama Rumah Sakit': 'Siloam Hospitals Lippo Village',
+        'Nama Rumah Sakit': 'RS Lippo Village',
         'Kota / Kabupaten': 'Tangerang',
         'Provinsi': 'Banten',
         'Pulau / Wilayah': 'Jawa',
@@ -264,7 +264,7 @@ class HospitalService {
       },
       {
         'Kode Unit': 'MRCCC',
-        'Nama Rumah Sakit': 'MRCCC Siloam Semanggi Jakarta',
+        'Nama Rumah Sakit': 'MRCCC Semanggi Jakarta',
         'Kota / Kabupaten': 'Jakarta Selatan',
         'Provinsi': 'DKI Jakarta',
         'Pulau / Wilayah': 'Jawa',
@@ -274,7 +274,7 @@ class HospitalService {
       },
       {
         'Kode Unit': 'SHDP',
-        'Nama Rumah Sakit': 'Siloam Hospitals Denpasar Bali',
+        'Nama Rumah Sakit': 'RS Denpasar Bali',
         'Kota / Kabupaten': 'Badung / Denpasar',
         'Provinsi': 'Bali',
         'Pulau / Wilayah': 'Bali & Nusa Tenggara',
@@ -284,7 +284,7 @@ class HospitalService {
       },
       {
         'Kode Unit': 'SHMD',
-        'Nama Rumah Sakit': 'Siloam Hospitals Medan Dhirga Surya',
+        'Nama Rumah Sakit': 'RS Medan Dhirga Surya',
         'Kota / Kabupaten': 'Medan',
         'Provinsi': 'Sumatera Utara',
         'Pulau / Wilayah': 'Sumatera',
@@ -294,7 +294,7 @@ class HospitalService {
       },
       {
         'Kode Unit': 'SHBP',
-        'Nama Rumah Sakit': 'Siloam Hospitals Balikpapan',
+        'Nama Rumah Sakit': 'RS Balikpapan',
         'Kota / Kabupaten': 'Balikpapan',
         'Provinsi': 'Kalimantan Timur',
         'Pulau / Wilayah': 'Kalimantan',
@@ -304,7 +304,7 @@ class HospitalService {
       },
       {
         'Kode Unit': 'SHMK',
-        'Nama Rumah Sakit': 'Siloam Hospitals Makassar',
+        'Nama Rumah Sakit': 'RS Makassar',
         'Kota / Kabupaten': 'Makassar',
         'Provinsi': 'Sulawesi Selatan',
         'Pulau / Wilayah': 'Sulawesi',
@@ -329,13 +329,13 @@ class HospitalService {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Master_Rumah_Sakit');
 
-    XLSX.writeFile(workbook, 'Template_Master_Rumah_Sakit_Siloam.xlsx');
+    XLSX.writeFile(workbook, 'Template_Master_Rumah_Sakit.xlsx');
   }
 
   /**
    * Export all or filtered hospitals to Excel
    */
-  exportHospitalsToExcel(hospitals: HospitalUnit[], filename = 'Master_Data_Rumah_Sakit_Siloam.xlsx'): void {
+  exportHospitalsToExcel(hospitals: HospitalUnit[], filename = 'Master_Data_Rumah_Sakit.xlsx'): void {
     const data = hospitals.map((h, index) => ({
       No: index + 1,
       'Kode Unit': h.code,
@@ -364,7 +364,7 @@ class HospitalService {
     ];
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Daftar_RS_Siloam');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Daftar_RS');
     XLSX.writeFile(workbook, filename);
   }
 }

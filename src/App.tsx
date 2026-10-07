@@ -7,6 +7,7 @@ import { useAdminAuth } from './core/services/auth/useAdminAuth';
 import { SessionRealm, useSessionStore } from './core/session/store';
 import { useActiveHospitalCount } from './core/api/options';
 import { restoreSession } from './core/api/session';
+import { readResetLinkParams, ResetPasswordFromLinkForm } from './core/ui/ResetPasswordFromLinkForm';
 import { AdminUser, VendorProfile, BusinessScope } from './core/types';
 
 const VendorPortalPage = lazy(() => import('./pages/VendorPortalPage').then((m) => ({ default: m.VendorPortalPage })));
@@ -74,7 +75,28 @@ export default function App() {
     return <PageLoader label="Memeriksa sesi…" />;
   }
 
-  // 1. If path is /admin (or /admin/tender, /admin/erp, /admin/ai-logs) -> Internal Siloam ERP
+  // Email "Atur Password Baru" link works even if user still has an open session.
+  const resetLink = readResetLinkParams(typeof window !== 'undefined' ? window.location.search : '');
+  if (resetLink) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 dark:bg-slate-950">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xl dark:border-slate-800 dark:bg-slate-900 space-y-4">
+          <h1 className="text-lg font-bold text-slate-900 dark:text-white">Atur Password Baru</h1>
+          <ResetPasswordFromLinkForm
+            challenge={resetLink.challenge}
+            code={resetLink.code}
+            onDone={() => {
+              clearVendorSession();
+              adminAuth.logout();
+              window.location.assign(isAdmin ? '/admin' : '/');
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // 1. If path is /admin (or /admin/tender, /admin/erp, /admin/ai-logs) -> Internal ERP
   if (isAdmin) {
     if (!adminAuth.isAuthenticated) {
       return (
@@ -134,7 +156,7 @@ export default function App() {
         <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 px-3 sm:px-5 lg:px-6 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-700 dark:text-slate-300">
-              PT Siloam International Hospitals Tbk
+              Portal Pengadaan Vendor
             </span>
             <span>·</span>
             <span>Procurement & Supply Chain Division</span>
@@ -143,7 +165,7 @@ export default function App() {
           <div className="flex items-center gap-4">
             <span>Standar Penamaan SKU 4 Bagian</span>
             <span>·</span>
-            <span>Coverage Rumah Sakit Terstandarisasi ({hospitalCount ?? '…'} Unit)</span>
+            <span>Coverage Rumah Sakit Terstandarisasi</span>
             <span>·</span>
             <button
               onClick={() => navigate('/admin')}

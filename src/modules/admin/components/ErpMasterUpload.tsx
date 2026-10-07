@@ -46,7 +46,7 @@ export const ErpMasterUpload: React.FC<ErpMasterUploadProps> = ({ onUploadSucces
 
   /**
    * Generates and downloads exact ERP Master SKU Excel template matching
-   * the 20 columns from the Siloam ERP system screenshot.
+   * the 20 columns from the ERP system.
    */
   const handleDownloadErpSample = () => {
     const sampleRows = [
@@ -256,7 +256,7 @@ export const ErpMasterUpload: React.FC<ErpMasterUploadProps> = ({ onUploadSucces
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'ERP_Master_SKU');
-    XLSX.writeFile(wb, 'Siloam_ERP_Master_Data_Export.xlsx');
+    XLSX.writeFile(wb, 'ERP_Master_Data_Export.xlsx');
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -276,7 +276,7 @@ export const ErpMasterUpload: React.FC<ErpMasterUploadProps> = ({ onUploadSucces
       setPreviewPage(1);
       setIsPreviewOpen(true);
     } catch (err: any) {
-      alert('Gagal membaca file ERP Siloam: ' + err.message);
+      alert('Gagal membaca file ERP: ' + err.message);
     } finally {
       setIsProcessing(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -330,7 +330,7 @@ export const ErpMasterUpload: React.FC<ErpMasterUploadProps> = ({ onUploadSucces
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
             <FileSpreadsheet className="h-4 w-4" />
-            <span>Integrasi & Upload Master Data SKU dari ERP Siloam</span>
+            <span>Integrasi & Upload Master Data SKU dari ERP</span>
           </div>
           <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-white">
             Unggah File Excel Master SKU ERP (20 Kolom Standar)
@@ -391,7 +391,7 @@ export const ErpMasterUpload: React.FC<ErpMasterUploadProps> = ({ onUploadSucces
                 {parsedSkus.length} SKU
               </div>
               <span className="text-[11px] text-blue-600 dark:text-blue-400">
-                Dari file Excel ERP Siloam
+                Dari file Excel ERP
               </span>
             </div>
 

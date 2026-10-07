@@ -23,12 +23,12 @@ export const VendorSubmissionList: React.FC<VendorSubmissionListProps> = ({
       'Spesifikasi Umum (Bagian 2)': s.generalSpec,
       'Brand Vendor (Bagian 3)': s.vendorBrand,
       'Part Number (Bagian 4)': s.vendorPartNumber,
-      'Nama SKU Lengkap Siloam': s.fullFormattedSkuName,
+      'Nama SKU Lengkap': s.fullFormattedSkuName,
       'Price List EXCL. VAT': s.priceListExcludeVat || s.unitPrice,
       'Discount (%)': s.discountPercent || 0,
       'Nett Price EXCL. VAT': s.nettPriceExcludeVat || s.unitPrice,
       'Harga Satuan + PPN (IDR)': s.priceWithTax,
-      'Coverage Rumah Sakit': s.installedHospitals?.join(', ') || 'Seluruh RS Siloam',
+      'Coverage Rumah Sakit': s.installedHospitals?.join(', ') || 'Seluruh Unit RS',
       'Satuan UoM': s.uom,
       'MOQ': s.moq,
       'Lead Time (Hari)': s.leadTimeDays,
@@ -42,7 +42,7 @@ export const VendorSubmissionList: React.FC<VendorSubmissionListProps> = ({
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Daftar_Penawaran');
-    XLSX.writeFile(wb, 'Siloam_Daftar_Penawaran_Vendor.xlsx');
+    XLSX.writeFile(wb, 'Daftar_Penawaran_Vendor.xlsx');
   };
 
   if (submissions.length === 0) {

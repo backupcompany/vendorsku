@@ -13,7 +13,7 @@ import { VendorCommercialTermsTab } from '../modules/vendor/components/VendorCom
 import { VendorScopeOnboardingModal } from '../modules/vendor/components/VendorScopeOnboardingModal';
 import { VendorQuickGuideModal } from '../modules/vendor/components/VendorQuickGuideModal';
 import { VendorChangePasswordModal } from '../modules/vendor/components/VendorChangePasswordModal';
-import { TableProperties, ClipboardList, HelpCircle, Building, ShieldCheck } from 'lucide-react';
+import { TableProperties, ClipboardList, Building, ShieldCheck } from 'lucide-react';
 import { useUrlTab } from '../core/router/useAppRouter';
 
 const PORTAL_TABS = ['cover', 'terms', 'pricing', 'submissions'] as const;
@@ -153,9 +153,26 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
     handleOpenPriceModal(parentSku, sub);
   };
 
+  const tabBtn = (id: (typeof PORTAL_TABS)[number], label: string, icon: React.ReactNode) => {
+    const active = activeSubTab === id || (id === 'pricing' && (activeSubTab as string) === 'matrix');
+    return (
+      <button
+        type="button"
+        onClick={() => setActiveSubTab(id)}
+        className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 ${
+          active
+            ? 'border-[#1B3F9B] text-[#0B2361] font-bold bg-[#E2E8F0] dark:bg-[#091838] dark:text-blue-300 dark:border-blue-400 rounded-t-lg shadow-2xs'
+            : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:text-white font-medium'
+        }`}
+      >
+        {icon}
+        <span>{label}</span>
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-2.5">
-      {/* Top Sticky Header with Company Name, Quick Guide, Dark Mode & Vendor Logout */}
       <Header
         isDark={isDark}
         onToggleTheme={onToggleTheme}
@@ -166,150 +183,51 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
         onOpenChangePassword={() => setIsChangePasswordOpen(true)}
       />
 
-      {/* TAB 1: PROFIL PERUSAHAAN & PIC */}
+      {/* One shared tab bar — same chrome on every menu (no layout jump). */}
+      <div className="sticky top-16 z-30 w-full rounded-2xl border border-slate-300/90 bg-[#E2E8F0] shadow-md transition-colors dark:border-slate-800 dark:bg-[#091838] overflow-hidden backdrop-blur-md">
+        <div className="flex items-center justify-between border-b border-slate-300/90 px-3 pt-2 bg-[#CBD5E1] dark:border-slate-800 dark:bg-[#061129]">
+          <div className="flex items-center gap-1 -mb-px overflow-x-auto">
+            {tabBtn('cover', 'Profil Perusahaan & PIC', <Building className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400 shrink-0" />)}
+            {tabBtn('terms', 'Lini Bisnis & Ketentuan Distribusi', <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />)}
+            {tabBtn('pricing', 'Daftar SKU & Penawaran Harga', <TableProperties className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400 shrink-0" />)}
+            {tabBtn('submissions', 'Penawaran Tersimpan', <ClipboardList className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400 shrink-0" />)}
+          </div>
+          <div className="flex items-center gap-2 pb-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsQuickGuideOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-300 bg-white/90 hover:bg-white text-blue-800 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-200 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+            >
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold">?</span>
+              <span className="hidden sm:inline">Panduan 3 Langkah</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {activeSubTab === 'cover' && (
-        <div className="max-w-3xl mx-auto space-y-4 animate-in fade-in duration-200">
-          {/* Top Sticky Ribbon Tab Bar (Centered & Aligned with Card) */}
-          <div className="sticky top-16 z-30 w-full rounded-2xl border border-slate-300/90 bg-[#E2E8F0] shadow-md transition-colors dark:border-slate-800 dark:bg-[#091838] overflow-hidden backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-slate-300/90 px-3 pt-2 bg-[#CBD5E1] dark:border-slate-800 dark:bg-[#061129]">
-              <div className="flex items-center gap-1 -mb-px">
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('cover')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-[#1B3F9B] text-[#0B2361] font-bold bg-[#E2E8F0] dark:bg-[#091838] dark:text-blue-300 dark:border-blue-400 rounded-t-lg shadow-2xs"
-                >
-                  <Building className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400" />
-                  <span>Profil Perusahaan & PIC</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('terms')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:text-white font-medium"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>Lini Bisnis & Ketentuan Distribusi</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('pricing')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:text-white font-medium"
-                >
-                  <TableProperties className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-                  <span>Daftar SKU & Penawaran Harga</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('submissions')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:text-white font-medium"
-                >
-                  <ClipboardList className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-                  <span>Penawaran Tersimpan ({submissions.length})</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2 pb-1.5">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickGuideOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-300 bg-white/90 hover:bg-white text-blue-800 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-200 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
-                >
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold">
-                    ?
-                  </span>
-                  <span className="hidden sm:inline">Panduan 3 Langkah</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <VendorCoverProfileTab
-            vendor={currentVendor}
-            totalSubmissionsCount={submissions.length}
-            onUpdateProfile={updateVendorProfile}
-            onUpdateScope={(_id, scope) => handleSaveScope(scope)}
-            onNavigateToPricing={() => setActiveSubTab('pricing')}
-            onNavigateToTerms={() => setActiveSubTab('terms')}
-            onNavigateToMatrix={() => setActiveSubTab('pricing')}
-            onOpenQuickGuide={() => setIsQuickGuideOpen(true)}
-            onOpenChangePassword={() => setIsChangePasswordOpen(true)}
-          />
-        </div>
+        <VendorCoverProfileTab
+          vendor={currentVendor}
+          onUpdateProfile={updateVendorProfile}
+          onNavigateToPricing={() => setActiveSubTab('pricing')}
+          onNavigateToTerms={() => setActiveSubTab('terms')}
+          onNavigateToMatrix={() => setActiveSubTab('pricing')}
+          onOpenQuickGuide={() => setIsQuickGuideOpen(true)}
+          onOpenChangePassword={() => setIsChangePasswordOpen(true)}
+        />
       )}
 
-      {/* TAB 2: LINI BISNIS & KETENTUAN DISTRIBUSI */}
       {activeSubTab === 'terms' && (
-        <div className="space-y-3">
-          {/* Top Sticky Ribbon Tab Bar */}
-          <div className="sticky top-16 z-30 w-full rounded-2xl border border-slate-300/90 bg-[#E2E8F0] shadow-md transition-colors dark:border-slate-800 dark:bg-[#091838] overflow-hidden backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-slate-300/90 px-3 pt-2 bg-[#CBD5E1] dark:border-slate-800 dark:bg-[#061129]">
-              <div className="flex items-center gap-1 -mb-px">
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('cover')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:text-white font-medium"
-                >
-                  <Building className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-                  <span>Profil Perusahaan & PIC</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('terms')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-[#1B3F9B] text-[#0B2361] font-bold bg-[#E2E8F0] dark:bg-[#091838] dark:text-blue-300 dark:border-blue-400 rounded-t-lg shadow-2xs"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>Lini Bisnis & Ketentuan Distribusi</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('pricing')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:text-white font-medium"
-                >
-                  <TableProperties className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-                  <span>Daftar SKU & Penawaran Harga</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('submissions')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:text-white font-medium"
-                >
-                  <ClipboardList className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-                  <span>Penawaran Tersimpan ({submissions.length})</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2 pb-1.5">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickGuideOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-300 bg-white/90 hover:bg-white text-blue-800 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-200 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
-                >
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold">
-                    ?
-                  </span>
-                  <span className="hidden sm:inline">Panduan 3 Langkah</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <VendorCommercialTermsTab
-            vendor={currentVendor}
-            onUpdateTerms={handleUpdateTerms}
-            onUpdateScope={(_id, scope) => handleSaveScope(scope)}
-            onNavigateToPricing={() => setActiveSubTab('pricing')}
-            onOpenQuickGuide={() => setIsQuickGuideOpen(true)}
-          />
-        </div>
+        <VendorCommercialTermsTab
+          vendor={currentVendor}
+          onUpdateTerms={handleUpdateTerms}
+          onUpdateScope={(_id, scope) => handleSaveScope(scope)}
+          onNavigateToPricing={() => setActiveSubTab('pricing')}
+          onOpenQuickGuide={() => setIsQuickGuideOpen(true)}
+        />
       )}
 
-      {/* TAB 3: DAFTAR SKU & PENAWARAN HARGA */}
-      {(activeSubTab === 'pricing' || (activeSubTab as any) === 'matrix') && (
+      {(activeSubTab === 'pricing' || (activeSubTab as string) === 'matrix') && (
         <VendorSpreadsheetGrid
           masterSkus={activeAllSkus}
           allMasterSkus={activeAllSkus}
@@ -325,73 +243,16 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
           onChangeSubTab={(tab) => setActiveSubTab(tab as any)}
           totalSubmissionsCount={submissions.length}
           totalAllSkusCount={activeAllSkus.length}
+          hideNavTabs
         />
       )}
 
-      {/* TAB 4: PENAWARAN TERSIMPAN */}
       {activeSubTab === 'submissions' && (
-        <div className="space-y-2.5">
-          <div className="sticky top-16 z-30 w-full rounded-2xl border border-slate-300/90 bg-[#E2E8F0] shadow-md transition-colors dark:border-slate-800 dark:bg-[#091838] overflow-hidden backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-slate-300/90 px-3 pt-2 bg-[#CBD5E1] dark:border-slate-800 dark:bg-[#061129]">
-              <div className="flex items-center gap-1 -mb-px">
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('cover')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:text-white font-medium"
-                >
-                  <Building className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-                  <span>Profil Perusahaan & PIC</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('terms')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:text-white font-medium"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>Lini Bisnis & Ketentuan Distribusi</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('pricing')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:text-white font-medium"
-                >
-                  <TableProperties className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-                  <span>Daftar SKU & Penawaran Harga</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('submissions')}
-                  className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-siloam transition-all cursor-pointer border-b-2 border-[#1B3F9B] text-[#0B2361] font-bold bg-[#E2E8F0] dark:bg-[#091838] dark:text-blue-300 dark:border-blue-400 rounded-t-lg shadow-2xs"
-                >
-                  <ClipboardList className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400" />
-                  <span>Penawaran Tersimpan ({submissions.length})</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2 pb-1.5">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickGuideOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-300 bg-white/90 hover:bg-white text-blue-800 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-200 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
-                >
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold">
-                    ?
-                  </span>
-                  <span className="hidden sm:inline">Panduan 3 Langkah</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <VendorSubmissionList
-            submissions={submissions}
-            onEdit={handleEditSubmission}
-            onDelete={deleteSubmission}
-          />
-        </div>
+        <VendorSubmissionList
+          submissions={submissions}
+          onEdit={handleEditSubmission}
+          onDelete={deleteSubmission}
+        />
       )}
 
       {/* POP-UP MODAL: PANDUAN SINGKAT 3 LANGKAH PENGISIAN HARGA */}

@@ -59,6 +59,8 @@ interface VendorSpreadsheetGridProps {
   onChangeSubTab?: (tab: 'cover' | 'terms' | 'pricing' | 'submissions') => void;
   totalSubmissionsCount?: number;
   totalAllSkusCount?: number;
+  /** Parent already renders the portal tab bar — skip duplicate strip. */
+  hideNavTabs?: boolean;
 }
 
 export interface EditableRow {
@@ -226,6 +228,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
   onChangeSubTab,
   totalSubmissionsCount = 0,
   totalAllSkusCount = 0,
+  hideNavTabs = false,
 }) => {
   // Multi-select Filters: Kelompok Barang (L3) & Jenis / Tipe Barang (L4)
   // (Menggunakan bahasa umum yang mudah dipahami vendor)
@@ -406,7 +409,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
             priceListExcludeVat: priceList,
             discountPercent: discount !== undefined && discount !== null && discount !== 0 ? discount : '',
             nettPriceExcludeVat: nett,
-            installedHospitals: sub.installedHospitals && sub.installedHospitals.length > 0 ? sub.installedHospitals : ['All RS Siloam'],
+            installedHospitals: sub.installedHospitals && sub.installedHospitals.length > 0 ? sub.installedHospitals : ['Semua Unit RS'],
             isDirty: false,
             existingId: sub.id,
             isCustomVariant: subIdx > 0,
@@ -432,7 +435,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
           priceListExcludeVat: '',
           discountPercent: '',
           nettPriceExcludeVat: 0,
-          installedHospitals: ['All RS Siloam'],
+          installedHospitals: ['Semua Unit RS'],
           isDirty: false,
           existingId: undefined,
           isCustomVariant: false,
@@ -640,7 +643,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
       nettPriceExcludeVat: 0,
       installedHospitals: source.installedHospitals && source.installedHospitals.length > 0
         ? [...source.installedHospitals]
-        : ['All RS Siloam'],
+        : ['Semua Unit RS'],
       isDirty: true,
       isCustomVariant: true,
       candidateErpSkus: source.candidateErpSkus,
@@ -867,7 +870,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
           installedHospitals:
             vendor.commercialTerms?.coverageType === 'selected_units' && vendor.commercialTerms?.coveredHospitalUnits?.length
               ? vendor.commercialTerms.coveredHospitalUnits
-              : ['All RS Siloam'],
+              : ['Semua Unit RS'],
           status: 'submitted',
           submittedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -955,10 +958,9 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
       {/* UNIFIED EXCEL-STYLE RIBBON TOOLBAR CARD (STICKY & ELEGANT SLATE-TINTED)   */}
       {/* ========================================================================= */}
       <div className="sticky top-16 z-30 w-full rounded-2xl border border-slate-300/90 bg-[#E2E8F0] shadow-md transition-colors dark:border-slate-800 dark:bg-[#091838] overflow-hidden backdrop-blur-md">
-        {/* Top Tab Strip (Slightly Darker Tint, Not Plain White) */}
+        {!hideNavTabs && (
         <div className="flex items-center justify-between border-b border-slate-300/90 px-3 pt-2 bg-[#CBD5E1] dark:border-slate-800 dark:bg-[#061129]">
           <div className="flex items-center gap-1 -mb-px">
-            {/* Tab 1: Cover & Profil Rekanan */}
             <button
               type="button"
               onClick={() => onChangeSubTab?.('cover')}
@@ -971,8 +973,6 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
               <Building className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400" />
               <span>Profil Perusahaan & PIC</span>
             </button>
-
-            {/* Tab 2: Lini Bisnis & Ketentuan Distribusi */}
             <button
               type="button"
               onClick={() => onChangeSubTab?.('terms')}
@@ -985,8 +985,6 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Lini Bisnis & Ketentuan Distribusi</span>
             </button>
-
-            {/* Tab 3: Daftar SKU & Penawaran Harga */}
             <button
               type="button"
               onClick={() => onChangeSubTab?.('pricing')}
@@ -999,8 +997,6 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
               <TableProperties className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400" />
               <span>Daftar SKU & Penawaran Harga</span>
             </button>
-
-            {/* Tab 4: Penawaran Tersimpan */}
             <button
               type="button"
               onClick={() => onChangeSubTab?.('submissions')}
@@ -1011,29 +1007,22 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
               }`}
             >
               <ClipboardList className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-              <span>Penawaran Tersimpan ({totalSubmissionsCount || 0})</span>
+              <span>Penawaran Tersimpan</span>
             </button>
           </div>
-
-          {/* Right Side: Help ? Icon Button & SKU Counter */}
           <div className="flex items-center gap-2 pb-1.5">
-            <span className="hidden lg:inline text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-              {displayedRows.length} dari {masterSkus.length} SKU
-            </span>
-
             <button
               type="button"
               onClick={onOpenQuickGuide}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-300 bg-white/90 hover:bg-white text-blue-800 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-200 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
               title="Buka Panduan 3 Langkah Pengisian Harga"
             >
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold">
-                ?
-              </span>
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold">?</span>
               <span className="hidden sm:inline">Panduan 3 Langkah</span>
             </button>
           </div>
         </div>
+        )}
 
         {/* Ribbon Controls: Group 1 (Scope & L3/L4), Group 2 (Terms Header), Group 3 (Export & Display) */}
         <div className="p-2 sm:p-2.5 bg-[#E2E8F0] dark:bg-[#091838] overflow-x-auto">
@@ -1367,7 +1356,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
                     Masa Berlaku: <strong>s/d {vendor.commercialTerms?.priceValidUntil || '2026-12-31'}</strong>
                   </div>
                   <div className="truncate">
-                    Distribusi: <strong>{vendor.commercialTerms?.coverageType === 'all_units' ? 'Seluruh RS Siloam Nasional' : (vendor.commercialTerms?.coveredHospitalUnits?.length ? `${vendor.commercialTerms.coveredHospitalUnits.length} RS Terpilih` : 'Nasional')}</strong>
+                    Distribusi: <strong>{vendor.commercialTerms?.coverageType === 'all_units' ? 'Seluruh Unit RS Nasional' : (vendor.commercialTerms?.coveredHospitalUnits?.length ? `${vendor.commercialTerms.coveredHospitalUnits.length} RS Terpilih` : 'Nasional')}</strong>
                   </div>
                 </div>
               </div>
@@ -1445,14 +1434,14 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
           <div className="flex items-center gap-1.5 shrink-0">
             <div 
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-2xs text-xs font-bold"
-              title="Kotak Pencarian SKU Siloam"
+              title="Kotak Pencarian SKU"
             >
               <Search className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400" />
               <span>Search</span>
             </div>
           </div>
 
-          {/* B. Formula Input Box (Search SKU Siloam) */}
+          {/* B. Formula Input Box (Search SKU) */}
           <div className="flex-1 min-w-[240px] relative">
             <div className="flex items-center rounded-lg border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900 shadow-inner px-2.5 py-1 focus-within:border-[#1B3F9B] focus-within:ring-2 focus-within:ring-[#1B3F9B]/20 transition-all">
               <Search className="h-4 w-4 text-slate-400 shrink-0 mr-2" />
@@ -1474,7 +1463,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
                 </button>
               ) : (
                 <span className="shrink-0 text-[10px] font-medium text-slate-400 ml-2 hidden sm:inline">
-                  {displayedRows.length} SKU cocok
+                  Hasil filter
                 </span>
               )}
             </div>
@@ -2053,7 +2042,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
         {/* Left: Summary & Per-Page selector */}
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-slate-600 dark:text-slate-400">
-            Menampilkan <strong className="text-slate-900 dark:text-white font-semibold">{totalFilteredRows > 0 ? startIndex + 1 : 0}</strong> - <strong className="text-slate-900 dark:text-white font-semibold">{endIndex}</strong> dari <strong className="text-slate-900 dark:text-white font-semibold">{totalFilteredRows}</strong> baris ({rows.length} total SKU)
+            Menampilkan <strong className="text-slate-900 dark:text-white font-semibold">{totalFilteredRows > 0 ? startIndex + 1 : 0}</strong> - <strong className="text-slate-900 dark:text-white font-semibold">{endIndex}</strong> dari <strong className="text-slate-900 dark:text-white font-semibold">{totalFilteredRows}</strong> baris
           </span>
 
           <div className="flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-700 pl-3">

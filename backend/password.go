@@ -188,15 +188,54 @@ func postForgotPassword(db *sql.DB, realm string) http.HandlerFunc {
 			})
 			return
 		}
-		token, err := issueOTP(r.Context(), db, realm, id, email, true)
+		token, err := issueOTP(r.Context(), db, realm, id, email, true, appBaseURL(r))
 		if errors.Is(err, errOTPCooldown) {
 			w.Header().Set("Retry-After", fmt.Sprint(int(otpResendAfter.Seconds())))
-			writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "Kode baru sudah dikirim. Tunggu 1 menit sebelum meminta kode lagi."})
+			writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "Link baru sudah dikirim. Tunggu 1 menit sebelum meminta lagi."})
 			return
 		}
 		if err != nil {
 			log.Println("otp:", err)
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Gagal mengirim kode ke email. Coba lagi."})
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Gagal mengirim email. Coba lagi."})
+			return
+		}
+		writeForgotChallenge(w, token, maskEmail(email))
+	}
+}
+
+// Logged-in "Ganti Password": send reset link to the session account email (no old password).
+func postForgotSelf(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		a, ok := actorFrom(r.Context())
+		if !ok {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Sesi tidak valid."})
+			return
+		}
+		ip := clientIP(r)
+		if wait := signInThrottle.wait(otpKey(a.Kind, a.ID), ip); wait > 0 {
+			w.Header().Set("Retry-After", fmt.Sprint(int(wait.Seconds())+1))
+			writeJSON(w, http.StatusTooManyRequests, map[string]string{
+				"error": fmt.Sprintf("Terlalu banyak permintaan. Coba lagi dalam %d menit.", int(wait.Minutes())+1),
+			})
+			return
+		}
+		email, err := accountEmail(r.Context(), db, a.Kind, a.ID)
+		if err != nil || !validEmail(email) {
+			if err != nil {
+				log.Println(err)
+			}
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "Akun belum punya email aktif. Hubungi Procurement."})
+			return
+		}
+		token, err := issueOTP(r.Context(), db, a.Kind, a.ID, email, true, appBaseURL(r))
+		if errors.Is(err, errOTPCooldown) {
+			w.Header().Set("Retry-After", fmt.Sprint(int(otpResendAfter.Seconds())))
+			writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "Link baru sudah dikirim. Tunggu 1 menit sebelum meminta lagi."})
+			return
+		}
+		if err != nil {
+			log.Println("otp:", err)
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Gagal mengirim email. Coba lagi."})
 			return
 		}
 		writeForgotChallenge(w, token, maskEmail(email))

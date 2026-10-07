@@ -24,10 +24,10 @@ export const PromoteVendorToErpModal: React.FC<PromoteVendorToErpModalProps> = (
 
   useEffect(() => {
     if (vendor) {
-      // Auto-generate a clean standardized Siloam ERP vendor code
+      // Auto-generate ERP vendor code
       const randomSuffix = Math.floor(10000 + Math.random() * 90000);
       setErpCode(`VND-ERP-${randomSuffix}`);
-      setNotes(`Disetujui dan dipromosikan ke Master ERP Siloam pada ${new Date().toLocaleDateString('id-ID')}`);
+      setNotes(`Disetujui dan dipromosikan ke Master ERP pada ${new Date().toLocaleDateString('id-ID')}`);
       setErrorMessage(null);
     }
   }, [vendor]);
@@ -57,7 +57,7 @@ export const PromoteVendorToErpModal: React.FC<PromoteVendorToErpModalProps> = (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Promosikan Calon Rekanan Baru ke Master ERP Siloam"
+      title="Promosikan Calon Rekanan Baru ke Master ERP"
       subtitle={`Konfirmasi verifikasi dan penerbitan kode vendor resmi untuk ${vendor.companyName}`}
       maxWidth="md"
     >
@@ -100,7 +100,7 @@ export const PromoteVendorToErpModal: React.FC<PromoteVendorToErpModalProps> = (
         <div className="space-y-3 text-xs">
           <div>
             <label className="font-bold text-slate-800 dark:text-slate-200 block mb-1">
-              Kode Vendor ERP Siloam (SAP / SIM-RS) <span className="text-red-500">*</span>
+              Kode Vendor ERP (SAP / SIM-RS) <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -133,7 +133,7 @@ export const PromoteVendorToErpModal: React.FC<PromoteVendorToErpModalProps> = (
         <div className="flex items-start gap-2 p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-200 text-[11px] leading-relaxed">
           <CheckCircle2 className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
           <span>
-            Setelah dipromosikan, vendor ini akan berpindah ke <strong>Daftar Vendor ERP</strong> dengan status <strong>Verified</strong>, dapat diidentifikasi secara otomatis oleh sistem, dan memenuhi syarat penerbitan Kontrak Payung Tender Siloam.
+            Setelah dipromosikan, vendor ini akan berpindah ke <strong>Daftar Vendor ERP</strong> dengan status <strong>Verified</strong>, dapat diidentifikasi secara otomatis oleh sistem, dan memenuhi syarat penerbitan Kontrak Payung Tender.
           </span>
         </div>
 

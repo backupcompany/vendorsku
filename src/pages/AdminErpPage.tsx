@@ -6,7 +6,7 @@ import { SkuLockManager } from '../modules/admin/components/SkuLockManager';
 import { StaffSkuProposalsPanel } from '../modules/admin/components/StaffSkuProposalsPanel';
 import { TaxonomyFilterTree } from '../modules/sku/components/TaxonomyFilterTree';
 import { SkuSearchBar } from '../modules/sku/components/SkuSearchBar';
-import { Database, ShieldCheck, Lock, Unlock, Trash2, CheckCircle2, Sparkles, AlertCircle, RefreshCw, X, Users, ArrowRight } from 'lucide-react';
+import { Database, ShieldCheck, Trash2, Sparkles, AlertCircle, RefreshCw, X, Users, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '../core/ui/Button';
 import { Modal } from '../core/ui/Modal';
 import { clearMasterSkus } from '../core/api/catalog';
@@ -62,7 +62,7 @@ export const AdminErpPage: React.FC = () => {
       const cleared = await clearMasterSkus('all');
       await refresh();
       setIsCleanModalOpen(false);
-      setNotice(`Berhasil mengosongkan seluruh data Master SKU (${cleared} SKU dihapus). Database kini bersih (0 SKU).`);
+      setNotice('Berhasil mengosongkan seluruh data Master SKU.');
       setTimeout(() => setNotice(null), 5000);
     } catch (err: any) {
       alert('Gagal mengosongkan database: ' + err.message);
@@ -70,13 +70,6 @@ export const AdminErpPage: React.FC = () => {
       setIsProcessing(false);
     }
   };
-
-  const openCount = allSkus.filter((s) => s.isOpenForVendor).length;
-  const lockedCount = allSkus.filter((s) => !s.isOpenForVendor).length;
-  const uploadedCount = allSkus.filter((s) => s.isUploaded).length;
-  const activeErpCount = allSkus.filter((s) => s.status !== 'archived' && s.isActive !== false).length;
-  const deactiveErpCount = allSkus.filter((s) => s.status === 'archived' || s.isActive === false).length;
-  const seedCount = Math.max(0, allSkus.length - uploadedCount);
 
   return (
     <div className="space-y-6">
@@ -89,10 +82,10 @@ export const AdminErpPage: React.FC = () => {
               <span>Manajemen Master SKU ERP & Hak Akses Vendor</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Kontrol Master SKU Siloam Hospitals
+              Kontrol Master SKU
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
-              Unggah data master SKU dari sistem ERP Siloam dan tentukan SKU mana saja yang
+              Unggah data master SKU dari sistem ERP dan tentukan SKU mana saja yang
               diizinkan untuk diisi harganya oleh vendor rekanan pada masa pengadaan tender.
             </p>
           </div>
@@ -128,63 +121,6 @@ export const AdminErpPage: React.FC = () => {
       />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-colors dark:border-slate-800 dark:bg-slate-900">
-        {/* Stats */}
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
-          <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-850">
-            <div className="flex items-center justify-between text-slate-500">
-              <span>Total SKU ERP:</span>
-              {uploadedCount > 0 && (
-                <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
-                  {uploadedCount} Diunggah
-                </span>
-              )}
-            </div>
-            <div className="font-mono text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-              {allSkus.length} SKU
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-emerald-50/70 p-3 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/60">
-            <span className="text-emerald-800 dark:text-emerald-300 font-semibold flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-              ERP Aktif (Is Active):
-            </span>
-            <div className="font-mono text-lg font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">
-              {activeErpCount} SKU
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-rose-50/70 p-3 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-800/60">
-            <span className="text-rose-800 dark:text-rose-300 font-semibold flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
-              ERP Deactive (Nonaktif):
-            </span>
-            <div className="font-mono text-lg font-bold text-rose-700 dark:text-rose-300 mt-0.5">
-              {deactiveErpCount} SKU
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-blue-50/60 p-3 dark:bg-blue-950/20">
-            <span className="text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
-              <Unlock className="h-3.5 w-3.5" />
-              Bisa Diisi Vendor:
-            </span>
-            <div className="font-mono text-lg font-bold text-blue-700 dark:text-blue-300 mt-0.5">
-              {openCount} SKU
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-amber-50/60 p-3 dark:bg-amber-950/20">
-            <span className="text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-              <Lock className="h-3.5 w-3.5" />
-              Terkunci (Locked):
-            </span>
-            <div className="font-mono text-lg font-bold text-amber-700 dark:text-amber-300 mt-0.5">
-              {lockedCount} SKU
-            </div>
-          </div>
-        </div>
-
         {/* Quick Link Card to Master Vendor */}
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-amber-50/80 border border-blue-200 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-amber-950/30 dark:border-blue-900 text-xs">
           <div className="flex items-center gap-2.5">
@@ -225,7 +161,7 @@ export const AdminErpPage: React.FC = () => {
             Belum Ada Master SKU di Database
           </h3>
           <p className="mx-auto mt-1 max-w-md text-xs text-slate-500 dark:text-slate-400">
-            Database Master SKU bersih (0 SKU). Silakan unggah file Excel Master SKU dari sistem ERP Siloam pada form di atas untuk mengisi katalog SKU yang akan ditawarkan ke vendor rekanan.
+            Belum ada Master SKU. Unggah file Excel Master SKU dari sistem ERP pada form di atas untuk mengisi katalog SKU yang akan ditawarkan ke vendor rekanan.
           </p>
         </div>
       ) : (
@@ -298,35 +234,18 @@ export const AdminErpPage: React.FC = () => {
       >
         <div className="space-y-4 text-xs">
           <p className="text-slate-600 dark:text-slate-300">
-            Pilih tindakan pembersihan basis data Master SKU ERP Siloam di bawah ini:
+            Pilih tindakan pembersihan basis data Master SKU ERP di bawah ini:
           </p>
-
-          {/* Database breakdown */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-850 space-y-2">
-            <div className="flex items-center justify-between font-semibold text-slate-700 dark:text-slate-200">
-              <span>Total SKU Saat Ini:</span>
-              <span className="font-mono font-bold text-slate-900 dark:text-white">{allSkus.length} SKU</span>
-            </div>
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
-              <span>· SKU Hasil Unggahan Anda:</span>
-              <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{uploadedCount} SKU</span>
-            </div>
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
-              <span>· Data Seed Bawaan / Mock Awal:</span>
-              <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">{seedCount} SKU</span>
-            </div>
-          </div>
 
           {/* Action options */}
           <div className="space-y-3 pt-2">
-            {/* Action 1: Purge seed only */}
             <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 dark:border-amber-900/50 dark:bg-amber-950/20 space-y-2">
               <div className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
                 <Trash2 className="h-4 w-4 text-amber-600" />
                 <span>Opsi 1: Hapus Hanya Seed Bawaan</span>
               </div>
               <p className="text-[11px] text-amber-800/80 dark:text-amber-400/80">
-                Menghapus seluruh SKU dummy bawaan sistem. Data Master SKU yang diunggah oleh Anda via Excel tetap aman tersimpan.
+                Menghapus seluruh SKU dummy bawaan sistem. Data Master SKU yang diunggah via Excel tetap aman.
               </p>
               <Button
                 type="button"
@@ -336,18 +255,17 @@ export const AdminErpPage: React.FC = () => {
                 isLoading={isProcessing}
                 className="w-full text-xs font-bold border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 cursor-pointer"
               >
-                Hapus Seed Bawaan ({seedCount} SKU)
+                Hapus Seed Bawaan
               </Button>
             </div>
 
-            {/* Action 2: Reset total to 0 */}
             <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3.5 dark:border-rose-900/50 dark:bg-rose-950/20 space-y-2">
               <div className="font-bold text-rose-900 dark:text-rose-300 flex items-center gap-1.5">
                 <AlertCircle className="h-4 w-4 text-rose-600" />
-                <span>Opsi 2: Kosongkan Seluruh Master SKU (Reset Total ke 0)</span>
+                <span>Opsi 2: Kosongkan Seluruh Master SKU</span>
               </div>
               <p className="text-[11px] text-rose-800/80 dark:text-rose-400/80">
-                Menghapus SEMUA {allSkus.length} SKU dari database portal sehingga menjadi kosong bersih (0 SKU), siap untuk mengunggah file Excel baru dari awal.
+                Menghapus seluruh Master SKU dari database portal, siap untuk unggah file Excel baru.
               </p>
               <Button
                 type="button"
@@ -357,7 +275,7 @@ export const AdminErpPage: React.FC = () => {
                 isLoading={isProcessing}
                 className="w-full text-xs font-bold cursor-pointer"
               >
-                Kosongkan Seluruh Database Master SKU ({allSkus.length} SKU)
+                Kosongkan Seluruh Database Master SKU
               </Button>
             </div>
           </div>

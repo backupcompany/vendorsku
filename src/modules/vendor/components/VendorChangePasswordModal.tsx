@@ -1,69 +1,43 @@
 import React, { useState } from 'react';
-import { X, Lock, KeyRound, ShieldCheck, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
-import { authService } from '../../../core/services/auth/authService';
-import { passwordProblem } from '../../../core/auth/signInRules';
+import { X, KeyRound, MailCheck, AlertCircle, CheckCircle2, Send } from 'lucide-react';
+import { requestPasswordResetLink } from '../../../core/api/session';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
   accountName: string;
-  onPasswordChanged?: () => void;
 }
 
+/** Ganti password = kirim link ke email. User klik email → isi password baru + konfirmasi (tanpa password lama). */
 export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   isOpen,
   onClose,
   accountName,
-  onPasswordChanged,
 }) => {
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [sentTo, setSentTo] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSend = async () => {
     setErrorMsg('');
-    setSuccessMsg('');
-    if (!currentPassword) {
-      setErrorMsg('Masukkan password lama Anda.');
-      return;
-    }
-    const problem = passwordProblem(newPassword);
-    if (problem) {
-      setErrorMsg(problem);
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setErrorMsg('Konfirmasi password tidak cocok dengan password baru.');
-      return;
-    }
     setIsSubmitting(true);
     try {
-      await authService.changePassword(currentPassword, newPassword);
-      setSuccessMsg('Password berhasil diperbarui di database.');
-      onPasswordChanged?.();
-      setTimeout(() => {
-        onClose();
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-        setSuccessMsg('');
-      }, 1000);
+      const challenge = await requestPasswordResetLink();
+      setSentTo(challenge.email);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal mengubah password.');
+      setErrorMsg(err.message || 'Gagal mengirim email.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const inputClass =
-    'w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-10 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#1B3F9B] focus:outline-none focus:ring-1 focus:ring-[#1B3F9B] dark:border-slate-700 dark:bg-slate-800 dark:text-white';
+  const handleClose = () => {
+    setErrorMsg('');
+    setSentTo('');
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
@@ -78,7 +52,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[240px]">{accountName}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+          <button type="button" onClick={handleClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -89,92 +63,54 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             <span>{errorMsg}</span>
           </div>
         )}
-        {successMsg && (
-          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-            <span>{successMsg}</span>
-          </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Password Lama <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <Lock className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-3 h-4 w-4 text-slate-400" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-                className={inputClass}
-              />
+        {sentTo ? (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+              <div className="space-y-1">
+                <p className="font-semibold">Link sudah dikirim ke {sentTo}</p>
+                <p className="leading-relaxed">
+                  Buka email Anda, klik <strong>Atur Password Baru</strong>, lalu isi password baru dan konfirmasinya.
+                  Tidak perlu mengingat password lama.
+                </p>
+              </div>
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Password Baru <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <Lock className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-3 h-4 w-4 text-slate-400" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Min. 8 karakter, huruf + angka"
-                autoComplete="new-password"
-                required
-                className={inputClass}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((p) => !p)}
-                className="absolute inset-y-0 right-0 my-auto mr-3 text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Konfirmasi Password Baru <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <Lock className="pointer-events-none absolute inset-y-0 left-0 my-auto ml-3 h-4 w-4 text-slate-400" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Ulangi password baru"
-                autoComplete="new-password"
-                required
-                className={inputClass}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              onClick={onClose}
-              className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+              onClick={handleClose}
+              className="w-full rounded-xl border border-slate-300 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+            >
+              Tutup
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-xl border border-[#1B3F9B]/20 bg-[#1B3F9B]/5 p-3.5 text-xs text-slate-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-slate-200">
+              <MailCheck className="h-5 w-5 shrink-0 text-[#1B3F9B] dark:text-blue-300" />
+              <p className="leading-relaxed">
+                Kami kirim tautan ke email akun Anda. Setelah diklik, Anda hanya mengisi
+                <strong> password baru</strong> dan <strong>konfirmasi</strong> — tanpa password lama.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => void handleSend()}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1B3F9B] hover:bg-[#153482] py-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-50 cursor-pointer"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>{isSubmitting ? 'Mengirim…' : 'Kirim Link ke Email'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-full text-xs font-semibold text-slate-500 hover:text-slate-700 cursor-pointer"
             >
               Batal
             </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || Boolean(passwordProblem(newPassword)) || newPassword !== confirmPassword || !currentPassword}
-              className="flex items-center gap-1.5 rounded-xl bg-[#1B3F9B] hover:bg-[#153482] px-4 py-1.5 text-xs font-bold text-white shadow-sm disabled:opacity-50 cursor-pointer"
-            >
-              <ShieldCheck className="h-3.5 w-3.5" />
-              <span>{isSubmitting ? 'Menyimpan…' : 'Simpan Password'}</span>
-            </button>
           </div>
-        </form>
+        )}
       </div>
     </div>
   );

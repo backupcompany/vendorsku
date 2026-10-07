@@ -57,7 +57,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
       id: 'tender' as AdminSubRoute,
       path: '/admin/tender',
       label: 'Review Tender',
-      sublabel: 'Evaluasi & HPS Siloam',
+      sublabel: 'Evaluasi & HPS',
       icon: Layers,
       badge: 'Penawaran',
     },
@@ -110,9 +110,9 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
       case 'discovery':
         return 'Procurement Discovery — Cari Produk & Vendor Follow-up';
       case 'vendors':
-        return 'Admin ERP — Master Data Vendor Rekanan Siloam';
+        return 'Admin ERP — Master Data Vendor Rekanan';
       case 'hospitals':
-        return 'Admin ERP — Master Data Rumah Sakit Siloam';
+        return 'Admin ERP — Master Data Rumah Sakit';
       case 'ai_logs':
         return 'Audit Trail AI & Manajemen Token Gemini';
       case 'tender':
@@ -137,7 +137,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
           isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Top Header of Left Pane: Corporate Siloam ERP Wordmark */}
+        {/* Top Header of Left Pane: Corporate ERP Wordmark */}
         <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-base shadow-sm ring-2 ring-blue-400/30">
@@ -145,7 +145,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
             </div>
             <div>
               <div className="text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
-                <span>Siloam ERP</span>
+                <span>ERP</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wider bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded border border-blue-500/30">
                   Internal
                 </span>
@@ -182,7 +182,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
         {/* Navigation Pane Links */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
           <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Modul Internal Siloam
+            Modul Internal
           </div>
 
           {navItems.map((item) => {
@@ -242,11 +242,11 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
                 <span>Coverage Nasional</span>
               </div>
               <p className="text-[10px] text-slate-400 leading-relaxed">
-                Terhubung dengan {hospitalCount ?? '…'} Rumah Sakit Siloam di seluruh Indonesia dengan standardisasi penamaan SKU 4 bagian.
+                Terhubung dengan {hospitalCount ?? '…'} Rumah Sakit di seluruh Indonesia dengan standardisasi penamaan SKU 4 bagian.
               </p>
               <div className="flex items-center gap-1.5 pt-1 text-[10px] text-emerald-400 font-semibold border-t border-slate-800">
                 <CheckCircle2 className="h-3 w-3" />
-                <span>Database PostgreSQL Siloam</span>
+                <span>Database PostgreSQL</span>
               </div>
             </div>
           </div>
@@ -293,7 +293,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
                 type="button"
                 onClick={onLogout}
                 className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-rose-800/80 bg-rose-950/40 hover:bg-rose-900/60 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors cursor-pointer"
-                title="Keluar dari sesi Admin Siloam"
+                title="Keluar dari sesi Admin"
               >
                 <LogOut className="h-3.5 w-3.5 text-rose-400" />
                 <span>Logout Staf</span>
@@ -320,7 +320,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
 
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                <span>Siloam ERP Internal</span>
+                <span>ERP Internal</span>
                 <span>/</span>
                 <span className="text-blue-600 dark:text-blue-400 font-semibold truncate">
                   {getBreadcrumbTitle()}
@@ -330,7 +330,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
                 {currentSubRoute === 'tender' && 'Review & Evaluasi Penawaran Tender'}
                 {currentSubRoute === 'erp' && 'Admin Master SKU ERP & Hak Akses'}
                 {currentSubRoute === 'vendors' && 'Master Data Rekanan (ERP & Vendor Baru)'}
-                {currentSubRoute === 'hospitals' && 'Master Data Unit Rumah Sakit Siloam'}
+                {currentSubRoute === 'hospitals' && 'Master Data Unit Rumah Sakit'}
                 {currentSubRoute === 'ai_logs' && 'Audit Trail AI Gemini & Telemetri'}
               </h2>
             </div>
@@ -374,7 +374,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
                 type="button"
                 onClick={onLogout}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 px-2.5 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 transition-colors shadow-2xs cursor-pointer"
-                title="Keluar dari sesi Admin Siloam"
+                title="Keluar dari sesi Admin"
               >
                 <LogOut className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
                 <span className="hidden sm:inline">Logout</span>
@@ -410,7 +410,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
           <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2 px-4 sm:px-6 text-xs text-slate-500 dark:text-slate-400">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-slate-700 dark:text-slate-300">
-                Siloam Hospitals Group ERP
+                Grup Rumah Sakit ERP
               </span>
               <span>·</span>
               <span>Procurement Division (Internal Only)</span>
@@ -425,7 +425,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
       <ChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
-        accountName={adminUser?.name || adminUser?.email || 'Staf Siloam'}
+        accountName={adminUser?.name || adminUser?.email || 'Staf Internal'}
       />
     </div>
   );

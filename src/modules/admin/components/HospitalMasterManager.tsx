@@ -207,10 +207,10 @@ export const HospitalMasterManager: React.FC = () => {
               <span>Master Data Terpusat · Seluruh Aplikasi</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Master Data Rumah Sakit Siloam
+              Master Data Rumah Sakit
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-              Katalog resmi unit Rumah Sakit Siloam nasional lengkap dengan keterangan kota, provinsi, dan gugus pulau.
+              Katalog resmi unit Rumah Sakit nasional lengkap dengan keterangan kota, provinsi, dan gugus pulau.
               Data ini digunakan serentak pada penentuan cakupan distribusi vendor dan modul pengadaan.
             </p>
           </div>
@@ -516,7 +516,7 @@ export const HospitalMasterManager: React.FC = () => {
         {/* Table Footer Summary */}
         <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850/50 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
           <span>
-            Menampilkan <strong>{filteredHospitals.length}</strong> dari <strong>{stats.total}</strong> Rumah Sakit Siloam
+            Menampilkan <strong>{filteredHospitals.length}</strong> dari <strong>{stats.total}</strong> Rumah Sakit
           </span>
           <span className="text-[11px] text-slate-400">
             Perubahan data tersinkronisasi otomatis dengan seluruh modul aplikasi.
@@ -528,7 +528,7 @@ export const HospitalMasterManager: React.FC = () => {
       <Modal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
-        title={editingHospital ? 'Edit Master Rumah Sakit' : 'Tambah Unit Rumah Sakit Siloam'}
+        title={editingHospital ? 'Edit Master Rumah Sakit' : 'Tambah Unit Rumah Sakit'}
         subtitle="Masukkan kelengkapan data unit rumah sakit untuk katalog distribusi pengadaan."
       >
         <form onSubmit={handleFormSubmit} className="space-y-4 pt-2">
@@ -565,14 +565,14 @@ export const HospitalMasterManager: React.FC = () => {
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Nama Rumah Sakit Siloam *
+              Nama Rumah Sakit *
             </label>
             <input
               type="text"
               required
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              placeholder="Cth: Siloam Hospitals Lippo Village"
+              placeholder="Cth: RS Lippo Village"
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 font-semibold dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
           </div>
@@ -673,7 +673,7 @@ export const HospitalMasterManager: React.FC = () => {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         title="Upload Master Data Rumah Sakit via Excel"
-        subtitle="Impor atau perbarui daftar unit rumah sakit Siloam secara massal menggunakan file .xlsx atau .csv."
+        subtitle="Impor atau perbarui daftar unit rumah sakit secara massal menggunakan file .xlsx atau .csv."
       >
         <div className="space-y-4 pt-2">
           {/* Instructions & Template info */}

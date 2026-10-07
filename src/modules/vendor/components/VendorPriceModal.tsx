@@ -154,11 +154,11 @@ export const VendorPriceModal: React.FC<VendorPriceModalProps> = ({
           </div>
         )}
 
-        {/* Siloam Master Reference Banner */}
+        {/* Master reference banner */}
         <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3.5 dark:border-blue-900/50 dark:bg-blue-950/30">
           <div className="flex items-center justify-between text-xs text-blue-900 dark:text-blue-200">
             <span className="font-semibold tracking-wide uppercase text-[10px]">
-              Referensi Kebutuhan RS Siloam
+              Referensi Kebutuhan RS
             </span>
           </div>
           <div className="mt-1 text-xs text-blue-700 dark:text-blue-300 font-medium">
@@ -186,7 +186,7 @@ export const VendorPriceModal: React.FC<VendorPriceModalProps> = ({
           <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
             <span className="flex items-center gap-1">
               <Tag className="h-3 w-3" />
-              Hasil Pemetaan Nama SKU Siloam (4 Bagian):
+              Hasil Pemetaan Nama SKU (4 Bagian):
             </span>
           </div>
           <div className="font-mono text-xs text-slate-800 dark:text-slate-200 break-words leading-relaxed">
@@ -249,7 +249,7 @@ export const VendorPriceModal: React.FC<VendorPriceModalProps> = ({
               Satuan: <span className="font-semibold text-slate-700 dark:text-slate-300">{sku.uom}</span>
               {sku.benchmarkPrice && (
                 <span className="ml-2">
-                  (HPS Siloam: Rp {sku.benchmarkPrice.toLocaleString('id-ID')})
+                  (HPS: Rp {sku.benchmarkPrice.toLocaleString('id-ID')})
                 </span>
               )}
             </p>

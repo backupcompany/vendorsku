@@ -191,7 +191,7 @@ export const AiTenderReviewDrawer: React.FC<AiTenderReviewDrawerProps> = ({
                       {isLow && (
                         <div className="mt-2 text-[10px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-100/70 dark:bg-rose-950/50 p-1.5 rounded flex items-center gap-1">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                          <span>Perhatian Tim Evaluasi: Skor akurasi di bawah 50%. Verifikasi kesesuaian fisik & spesifikasi teknis katalog vendor dengan Master Siloam sebelum evaluasi final.</span>
+                          <span>Perhatian Tim Evaluasi: Skor akurasi di bawah 50%. Verifikasi kesesuaian fisik & spesifikasi teknis katalog vendor dengan Master SKU sebelum evaluasi final.</span>
                         </div>
                       )}
                     </div>

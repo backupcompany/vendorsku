@@ -24,7 +24,7 @@ export interface SkuParseResult {
 
 export class AIService {
   /**
-   * Parse vendor raw catalog text into Siloam 4-part SKU format and 4-level taxonomy
+   * Parse vendor raw catalog text into 4-part SKU format and 4-level taxonomy
    */
   async matchAndParseSku(rawText: string, masterSkus: MasterSku[] = []): Promise<SkuParseResult> {
     const summaryContext = masterSkus
@@ -52,7 +52,7 @@ export class AIService {
       const data = await response.json();
       const parsed: SkuParseResult = data.parsed;
 
-      // Try to find closest matching Siloam Master SKU
+      // Try to find closest matching Master SKU
       if (masterSkus.length > 0) {
         const found = masterSkus.find(
           (m) =>
@@ -184,7 +184,7 @@ export class AIService {
         level3: matchedSku?.level3 || parts[0],
         level4: matchedSku?.level4 || 'Standar RS',
         confidenceScore: 0.9,
-        matchingNotes: 'Dipetakan via delimitasi titik koma standar Siloam',
+        matchingNotes: 'Dipetakan via delimitasi titik koma standar katalog',
         matchingMasterSkuId: matchedSku?.id,
       };
     }
@@ -202,7 +202,7 @@ export class AIService {
       level4: matchedSku?.level4 || 'Steril',
       confidenceScore: matchedSku ? 0.85 : 0.6,
       matchingNotes: matchedSku
-        ? `Cocok otomatis dengan Master Data Siloam: ${matchedSku.erpCode}`
+        ? `Cocok otomatis dengan Master Data: ${matchedSku.erpCode}`
         : 'Parsing perkiraan offline',
       matchingMasterSkuId: matchedSku?.id,
     };

@@ -64,7 +64,7 @@ export const SkuCard: React.FC<SkuCardProps> = ({
         {/* 4-Part Structure Preview Pill */}
         <div className="mt-3 rounded-lg bg-slate-50 p-2.5 text-xs text-slate-600 dark:bg-slate-850 dark:text-slate-400 border border-slate-100 dark:border-slate-800">
           <div className="mb-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-            Format Standar Penamaan SKU Siloam:
+            Format Standar Penamaan SKU:
           </div>
           <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300 leading-normal break-words">
             <span className="text-blue-700 dark:text-blue-300 font-medium">
@@ -89,7 +89,7 @@ export const SkuCard: React.FC<SkuCardProps> = ({
         <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
           {sku.benchmarkPrice ? (
             <div>
-              <span>HPS Siloam: </span>
+              <span>HPS: </span>
               <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
                 Rp {sku.benchmarkPrice.toLocaleString('id-ID')}
               </span>

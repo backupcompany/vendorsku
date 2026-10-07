@@ -452,10 +452,10 @@ export const SkuLockManager: React.FC<SkuLockManagerProps> = ({
               </th>
               <th className="px-3 py-2.5 w-12 text-center text-slate-400">#</th>
               <th className="px-3 py-2.5 font-semibold whitespace-nowrap min-w-[130px]">Kode ERP</th>
-              <th className="px-3 py-2.5 font-semibold min-w-[180px]">Taksonomi Siloam</th>
+              <th className="px-3 py-2.5 font-semibold min-w-[180px]">Taksonomi Katalog</th>
               <th className="px-3 py-2.5 font-semibold min-w-[200px]">Nama Komoditas (Bagian 1)</th>
               <th className="px-3 py-2.5 font-semibold min-w-[240px]">Spesifikasi Umum (Bagian 2)</th>
-              <th className="px-3 py-2.5 font-semibold text-center whitespace-nowrap min-w-[130px]" title="Kolom Is Active dari ERP Siloam">
+              <th className="px-3 py-2.5 font-semibold text-center whitespace-nowrap min-w-[130px]" title="Kolom Is Active dari ERP">
                 Status Aktif ERP
               </th>
               <th className="px-3 py-2.5 font-semibold text-center whitespace-nowrap min-w-[140px]">Status Akses Vendor</th>

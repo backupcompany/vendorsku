@@ -49,7 +49,7 @@ export const TenderEvaluationPage: React.FC = () => {
           'Nama Komoditas (Bagian 1)': item.sku.commodityName,
           'Spesifikasi Umum (Bagian 2)': item.sku.generalSpec,
           'UoM': item.sku.uom,
-          'HPS Siloam (IDR)': item.sku.benchmarkPrice || '',
+          'HPS (IDR)': item.sku.benchmarkPrice || '',
           'Peringkat': 'Belum Ada Penawaran',
           'Nama Vendor': '-',
           'Brand Vendor (Bagian 3)': '-',
@@ -71,7 +71,7 @@ export const TenderEvaluationPage: React.FC = () => {
             'Nama Komoditas (Bagian 1)': item.sku.commodityName,
             'Spesifikasi Umum (Bagian 2)': item.sku.generalSpec,
             'UoM': item.sku.uom,
-            'HPS Siloam (IDR)': item.sku.benchmarkPrice || '',
+            'HPS (IDR)': item.sku.benchmarkPrice || '',
             'Peringkat': `Rank #${idx + 1} (${idx === 0 ? 'Terendah' : ''})`,
             'Nama Vendor': sub.vendorName,
             'Brand Vendor (Bagian 3)': sub.vendorBrand,
@@ -80,7 +80,7 @@ export const TenderEvaluationPage: React.FC = () => {
             'Harga + PPN': sub.priceWithTax,
             'MOQ': `${sub.moq} ${sub.uom}`,
             'Lead Time': `${sub.leadTimeDays} Hari`,
-            'Coverage Rumah Sakit': sub.installedHospitals?.join(', ') || 'Seluruh Unit RS Siloam',
+            'Coverage Rumah Sakit': sub.installedHospitals?.join(', ') || 'Seluruh Unit RS',
             'Izin AKD/AKL': sub.kemenkesLicense || '-',
             'Confidence AI': sub.aiConfidenceScore !== undefined ? `${Math.round(sub.aiConfidenceScore * 100)}% (${sub.aiConfidenceLevel?.toUpperCase()})` : 'Manual',
             'Status Pairing': sub.pairingStatus || 'manual',
@@ -93,8 +93,8 @@ export const TenderEvaluationPage: React.FC = () => {
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Rekap_Tender_Siloam');
-    XLSX.writeFile(wb, 'Siloam_Rekapitulasi_Tender_PriceList.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, 'Rekap_Tender');
+    XLSX.writeFile(wb, 'Rekapitulasi_Tender_PriceList.xlsx');
   };
 
   return (
@@ -108,7 +108,7 @@ export const TenderEvaluationPage: React.FC = () => {
               <span>Komite Pengadaan & Evaluasi Tender Rumah Sakit</span>
             </div>
             <h1 className="mt-1 text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {activeTender?.title || 'Evaluasi Penawaran Harga SKU Tender Siloam'}
+              {activeTender?.title || 'Evaluasi Penawaran Harga SKU Tender'}
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
               Tinjau daftar seluruh SKU dalam bentuk taksonomi bertingkat. Bandingkan penawaran
@@ -129,14 +129,7 @@ export const TenderEvaluationPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Quick KPI stats */}
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
-          <div>
-            <span className="text-slate-400">Total Master SKU:</span>
-            <div className="font-mono text-base font-bold text-slate-900 dark:text-white">
-              {allComparisons.length} SKU
-            </div>
-          </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
           <div>
             <span className="text-slate-400">Penawaran Masuk:</span>
             <div className="font-mono text-base font-bold text-blue-600 dark:text-blue-400">
@@ -144,15 +137,9 @@ export const TenderEvaluationPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <span className="text-slate-400">SKU Berpenawaran:</span>
-            <div className="font-mono text-base font-bold text-emerald-600 dark:text-emerald-400">
-              {allComparisons.filter((c) => c.submissionCount > 0).length} SKU
-            </div>
-          </div>
-          <div>
             <span className="text-slate-400">Target Unit RS:</span>
             <div className="font-semibold text-slate-800 dark:text-slate-200 truncate">
-              {hospitalCount ?? '…'} Unit RS Siloam Nasional
+              {hospitalCount ?? '…'} Unit RS Nasional
             </div>
           </div>
         </div>
