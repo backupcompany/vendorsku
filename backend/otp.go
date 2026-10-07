@@ -92,30 +92,14 @@ func isLoopbackHost(host string) bool {
 	return h == "127.0.0.1" || h == "localhost" || h == "::1" || h == "0.0.0.0"
 }
 
+// Prod portal DNS. Override with PUBLIC_APP_URL only for local/staging.
+const defaultPublicAppURL = "https://submityourproduct.cgp-ai.com"
+
 func appBaseURL(r *http.Request) string {
-	// Prefer explicit public URL — BFF proxies with Host=127.0.0.1 so r.Host is useless in prod.
-	if v := strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_APP_URL")), "/"); v != "" {
+	if v := strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_APP_URL")), "/"); v != "" && !isLoopbackHost(v) {
 		return v
 	}
-	if o := strings.TrimRight(strings.TrimSpace(r.Header.Get("Origin")), "/"); o != "" && !isLoopbackHost(o) {
-		return o
-	}
-	proto := r.Header.Get("X-Forwarded-Proto")
-	if proto == "" {
-		if r.TLS != nil {
-			proto = "https"
-		} else {
-			proto = "http"
-		}
-	}
-	host := r.Header.Get("X-Forwarded-Host")
-	if host == "" {
-		host = r.Host
-	}
-	if host == "" || isLoopbackHost(host) {
-		return ""
-	}
-	return proto + "://" + host
+	return defaultPublicAppURL // never use r.Host — BFF sets it to 127.0.0.1
 }
 
 // issueOTP replaces any previous code for the account, so only the newest email works.
