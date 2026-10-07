@@ -84,9 +84,10 @@ func maskEmail(email string) string {
 	return local[:keep] + strings.Repeat("•", max(len(local)-keep, 3)) + "@" + domain
 }
 
-func isLoopbackHost(host string) bool {
-	h := strings.ToLower(strings.TrimSpace(host))
-	if i := strings.IndexByte(h, ':'); i >= 0 {
+func isLoopbackHost(hostOrURL string) bool {
+	h := strings.ToLower(strings.TrimSpace(hostOrURL))
+	h = strings.TrimPrefix(strings.TrimPrefix(h, "https://"), "http://")
+	if i := strings.IndexAny(h, "/:"); i >= 0 {
 		h = h[:i]
 	}
 	return h == "127.0.0.1" || h == "localhost" || h == "::1" || h == "0.0.0.0"
