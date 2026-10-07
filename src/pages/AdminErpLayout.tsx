@@ -7,6 +7,7 @@ import { AdminErpPage } from './AdminErpPage';
 import { HospitalMasterManager } from '../modules/admin/components/HospitalMasterManager';
 import { VendorMasterManager } from '../modules/admin/components/VendorMasterManager';
 import { AiTokenLogViewer } from '../modules/admin/components/AiTokenLogViewer';
+import { ProcurementDiscoveryPanel } from '../modules/admin/components/ProcurementDiscoveryPanel';
 import {
   Layers,
   Database,
@@ -25,7 +26,8 @@ import {
   CheckCircle2,
   LogOut,
   UserCheck,
-  KeyRound
+  KeyRound,
+  Search,
 } from 'lucide-react';
 import { ChangePasswordModal } from '../modules/vendor/components/VendorChangePasswordModal';
 
@@ -68,6 +70,14 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
       badge: 'Katalog RS',
     },
     {
+      id: 'discovery' as AdminSubRoute,
+      path: '/admin/discovery',
+      label: 'Cari Produk & Vendor',
+      sublabel: 'Discovery Procurement',
+      icon: Search,
+      badge: 'Follow-up',
+    },
+    {
       id: 'vendors' as AdminSubRoute,
       path: '/admin/vendors',
       label: 'Master Data Vendor',
@@ -97,6 +107,8 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
     switch (currentSubRoute) {
       case 'erp':
         return 'Admin ERP — Kontrol Master SKU & Hak Akses';
+      case 'discovery':
+        return 'Procurement Discovery — Cari Produk & Vendor Follow-up';
       case 'vendors':
         return 'Admin ERP — Master Data Vendor Rekanan Siloam';
       case 'hospitals':
@@ -375,6 +387,7 @@ export const AdminErpLayout: React.FC<AdminErpLayoutProps> = ({
         <main className="flex-1 w-full p-3 sm:p-5 lg:p-6 overflow-y-auto">
           {currentSubRoute === 'tender' && <TenderEvaluationPage />}
           {currentSubRoute === 'erp' && <AdminErpPage />}
+          {currentSubRoute === 'discovery' && <ProcurementDiscoveryPanel />}
           {currentSubRoute === 'vendors' && <VendorMasterManager />}
           {currentSubRoute === 'hospitals' && <HospitalMasterManager />}
           {currentSubRoute === 'ai_logs' && (

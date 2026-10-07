@@ -85,6 +85,7 @@ func main() {
 	mux.HandleFunc("POST /api/staff/sku-proposals/{id}/review", staff(reviewSkuProposal(db)))
 	mux.HandleFunc("POST /api/staff/sku-proposals/{id}/ai-standard", staff(saveSkuProposalAI(db)))
 	mux.HandleFunc("GET /api/staff/skus/{id}/attachments", staff(listStaffSkuAttachments(db)))
+	mux.HandleFunc("GET /api/staff/discovery/search", staff(staffDiscoverySearch(db)))
 	mux.HandleFunc("POST /api/staff/ai-logs", staff(postAiLog(db)))
 
 	mux.HandleFunc("DELETE /api/vendors/{id}", staff(deleteVendor(db)))

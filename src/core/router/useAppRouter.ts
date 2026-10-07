@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
-export type AdminSubRoute = 'tender' | 'erp' | 'vendors' | 'hospitals' | 'ai_logs';
+export type AdminSubRoute = 'tender' | 'erp' | 'vendors' | 'hospitals' | 'ai_logs' | 'discovery';
 
 export interface AppRoute {
   pathname: string;
@@ -13,6 +13,7 @@ const ADMIN_ROUTES: [prefix: string, route: AdminSubRoute][] = [
   ['/admin/vendors', 'vendors'],
   ['/admin/hospitals', 'hospitals'],
   ['/admin/ai-logs', 'ai_logs'],
+  ['/admin/discovery', 'discovery'],
   ['/admin/tender', 'tender'],
 ];
 

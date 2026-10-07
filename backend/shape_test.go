@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -1168,5 +1169,70 @@ func TestSkuProposalAIStandard(t *testing.T) {
 	var open bool
 	if err := db.QueryRow(`SELECT commodity_name, general_spec, status, is_open_for_vendor, source_row->>'rawSpec' FROM master_skus WHERE id=$1`, prop.ID).Scan(&name, &spec, &status, &open, &rawSpec); err != nil || name != "Examination Gloves Latex Powder Free" || !strings.Contains(spec, "powder free") || status != "active" || !open || !strings.Contains(rawSpec, "Natural rubber") {
 		t.Fatalf("approved name=%q spec=%q status=%s open=%v raw=%q err=%v", name, spec, status, open, rawSpec, err)
+	}
+}
+
+func TestStaffDiscoverySearch(t *testing.T) {
+	db, err := openDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`
+		INSERT INTO vendors (id, company_name, status, pic) VALUES
+		('disc-vnd', 'Discovery Vendor', 'prospect', '{"name":"D","email":"disc@example.com","phone":"081266677788"}')
+		ON CONFLICT (id) DO NOTHING`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("POST", "/api/vendors/disc-vnd/sku-proposals", strings.NewReader(`{"commodityName":"Examination Gloves Discovery","generalSpec":"Latex powder free AQL 1.5 for discovery test","level1":"DRUGS & CONSUMABLE"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", "disc-vnd")
+	rec := httptest.NewRecorder()
+	postSkuProposal(db)(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("propose %d %s", rec.Code, rec.Body)
+	}
+	var prop struct{ ID string `json:"id"` }
+	_ = json.Unmarshal(rec.Body.Bytes(), &prop)
+	pdf := []byte("%PDF-1.4\n(sarung tangan latex AQL 1.5 discovery brochure)\n%%EOF")
+	pb64 := base64.StdEncoding.EncodeToString(pdf)
+	preq := httptest.NewRequest("POST", "/api/vendors/disc-vnd/sku-proposals/"+prop.ID+"/attachments", strings.NewReader(`{"kind":"brochure","filename":"d.pdf","contentType":"application/pdf","dataBase64":"`+pb64+`"}`))
+	preq.Header.Set("Content-Type", "application/json")
+	preq.SetPathValue("id", "disc-vnd")
+	preq.SetPathValue("skuId", prop.ID)
+	prec := httptest.NewRecorder()
+	postSkuAttachment(db)(prec, preq)
+	if prec.Code != 200 {
+		t.Fatalf("pdf %d %s", prec.Code, prec.Body)
+	}
+
+	empty := httptest.NewRecorder()
+	staffDiscoverySearch(db)(empty, httptest.NewRequest("GET", "/api/staff/discovery/search?q=a", nil))
+	if empty.Code != 200 || empty.Body.String() != "[]\n" && empty.Body.String() != "[]" {
+		// allow pretty/no newline
+		if empty.Code != 200 || !strings.Contains(empty.Body.String(), "[]") {
+			t.Fatalf("short q %d %s", empty.Code, empty.Body)
+		}
+	}
+
+	sreq := httptest.NewRequest("GET", "/api/staff/discovery/search?q="+url.QueryEscape("AQL 1.5"), nil)
+	srec := httptest.NewRecorder()
+	staffDiscoverySearch(db)(srec, sreq)
+	if srec.Code != 200 || !strings.Contains(srec.Body.String(), prop.ID) || !strings.Contains(srec.Body.String(), "disc@example.com") {
+		t.Fatalf("search spek %d %s", srec.Code, srec.Body)
+	}
+
+	breq := httptest.NewRequest("GET", "/api/staff/discovery/search?q="+url.QueryEscape("discovery brochure"), nil)
+	brec := httptest.NewRecorder()
+	staffDiscoverySearch(db)(brec, breq)
+	if brec.Code != 200 || !strings.Contains(brec.Body.String(), `"matchField": "brosur"`) && !strings.Contains(brec.Body.String(), `"matchField":"brosur"`) {
+		t.Fatalf("search brosur %d %s", brec.Code, brec.Body)
+	}
+	if !strings.Contains(brec.Body.String(), "Discovery Vendor") {
+		t.Fatalf("missing vendor %s", brec.Body)
 	}
 }

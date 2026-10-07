@@ -673,3 +673,42 @@ export async function openSkuAttachment(attId: string): Promise<void> {
   window.open(url, '_blank', 'noopener,noreferrer');
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
+
+const discoveryHitSchema = z.object({
+  skuId: z.string(),
+  erpCode: z.string(),
+  commodityName: z.string(),
+  generalSpec: z.string(),
+  rawName: z.string().nullish(),
+  rawSpec: z.string().nullish(),
+  brand: z.string().nullish(),
+  partNumber: z.string().nullish(),
+  level1: z.string(),
+  uom: z.string(),
+  status: z.string(),
+  source: z.string().nullish(),
+  matchField: z.string(),
+  snippet: z.string().nullish(),
+  attachmentCount: z.number().nullish(),
+  vendor: z
+    .object({
+      id: z.string().nullish(),
+      companyName: z.string().nullish(),
+      email: z.string().nullish(),
+      phone: z.string().nullish(),
+      status: z.string().nullish(),
+    })
+    .nullish(),
+});
+
+export type DiscoveryHit = z.infer<typeof discoveryHitSchema>;
+
+export async function searchStaffDiscovery(q: string): Promise<DiscoveryHit[]> {
+  try {
+    const { data } = await http.get('/api/staff/discovery/search', { params: { q } });
+    return z.array(discoveryHitSchema).parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk hasil pencarian tidak sesuai.');
+    throw apiError(err, 'Pencarian gagal.');
+  }
+}
