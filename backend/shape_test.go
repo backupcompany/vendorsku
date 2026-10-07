@@ -822,3 +822,151 @@ func TestForgotPassword(t *testing.T) {
 		t.Fatalf("new password %d %s", status, msg)
 	}
 }
+
+func TestVendorSkuProposal(t *testing.T) {
+	db, err := openDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO vendors (id, company_name, status, pic)
+		VALUES ('prop-vnd', 'PT Usulan', 'prospect', '{"name":"A","email":"prop@example.com","phone":"081234567890"}')
+		ON CONFLICT (id) DO NOTHING
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	post := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "/api/vendors/prop-vnd/sku-proposals", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.SetPathValue("id", "prop-vnd")
+		rec := httptest.NewRecorder()
+		postSkuProposal(db)(rec, req)
+		return rec
+	}
+	if rec := post(`{"commodityName":"","generalSpec":"x","level1":"GENERAL SUPPLIES"}`); rec.Code != 400 {
+		t.Fatalf("blank name %d %s", rec.Code, rec.Body)
+	}
+	rec := post(`{"commodityName":"Kasa Steril","generalSpec":"Katun 100%, ukuran 10x10 cm.\nAQL 1.5.","level1":"GENERAL SUPPLIES","uom":"Box","brand":"Medi"}`)
+	if rec.Code != 200 {
+		t.Fatalf("propose %d %s", rec.Code, rec.Body)
+	}
+	var out struct {
+		ID        string `json:"id"`
+		Status    string `json:"status"`
+		RawSpec   string `json:"rawSpec"`
+		VendorID  string `json:"vendorId"`
+		OpenCheck bool   `json:"isOpenForVendor"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.ID == "" || out.Status != "pending_review" || out.VendorID != "prop-vnd" || !strings.Contains(out.RawSpec, "Katun") {
+		t.Fatalf("body %#v err=%v", out, err)
+	}
+	var open, active bool
+	var status string
+	if err := db.QueryRowContext(ctx, `SELECT is_open_for_vendor, is_active, status FROM master_skus WHERE id=$1`, out.ID).Scan(&open, &active, &status); err != nil || open || active || status != "pending_review" {
+		t.Fatalf("db flags open=%v active=%v status=%s err=%v", open, active, status, err)
+	}
+	bad := httptest.NewRequest("POST", "/api/staff/sku-proposals/"+out.ID+"/review", strings.NewReader(`{"decision":"maybe"}`))
+	bad.Header.Set("Content-Type", "application/json")
+	bad.SetPathValue("id", out.ID)
+	brec := httptest.NewRecorder()
+	reviewSkuProposal(db)(brec, bad)
+	if brec.Code != 400 {
+		t.Fatalf("bad decision %d", brec.Code)
+	}
+	ok := httptest.NewRequest("POST", "/api/staff/sku-proposals/"+out.ID+"/review", strings.NewReader(`{"decision":"approve","level2":"LINEN","level3":"KASA","level4":"STERIL"}`))
+	ok.Header.Set("Content-Type", "application/json")
+	ok.SetPathValue("id", out.ID)
+	orec := httptest.NewRecorder()
+	reviewSkuProposal(db)(orec, ok)
+	if orec.Code != 200 {
+		t.Fatalf("approve %d %s", orec.Code, orec.Body)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT is_open_for_vendor, is_active, status, level2, source_row->>'rawSpec' FROM master_skus WHERE id=$1`, out.ID).Scan(&open, &active, &status, new(string), new(string)); err != nil {
+		t.Fatal(err)
+	}
+	var level2, raw string
+	if err := db.QueryRowContext(ctx, `SELECT is_open_for_vendor, is_active, status, level2, source_row->>'rawSpec' FROM master_skus WHERE id=$1`, out.ID).Scan(&open, &active, &status, &level2, &raw); err != nil || !open || !active || status != "active" || level2 != "LINEN" || !strings.Contains(raw, "Katun") {
+		t.Fatalf("approved open=%v active=%v status=%s l2=%s raw=%q err=%v", open, active, status, level2, raw, err)
+	}
+	again := httptest.NewRequest("POST", "/api/staff/sku-proposals/"+out.ID+"/review", strings.NewReader(`{"decision":"reject"}`))
+	again.Header.Set("Content-Type", "application/json")
+	again.SetPathValue("id", out.ID)
+	arec := httptest.NewRecorder()
+	reviewSkuProposal(db)(arec, again)
+	if arec.Code != 409 {
+		t.Fatalf("re-review %d %s", arec.Code, arec.Body)
+	}
+	// second proposal → reject
+	rec2 := post(`{"commodityName":"Sarung Tangan","generalSpec":"Latex powder free","level1":"DRUGS & CONSUMABLE"}`)
+	if rec2.Code != 200 {
+		t.Fatalf("propose2 %d %s", rec2.Code, rec2.Body)
+	}
+	var out2 struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(rec2.Body.Bytes(), &out2)
+	rej := httptest.NewRequest("POST", "/api/staff/sku-proposals/"+out2.ID+"/review", strings.NewReader(`{"decision":"reject"}`))
+	rej.Header.Set("Content-Type", "application/json")
+	rej.SetPathValue("id", out2.ID)
+	rrec := httptest.NewRecorder()
+	reviewSkuProposal(db)(rrec, rej)
+	if rrec.Code != 200 {
+		t.Fatalf("reject %d %s", rrec.Code, rrec.Body)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT status, is_active FROM master_skus WHERE id=$1`, out2.ID).Scan(&status, &active); err != nil || status != "archived" || active {
+		t.Fatalf("rejected status=%s active=%v", status, active)
+	}
+}
+
+func TestSkuProposalGuardsAndLists(t *testing.T) {
+	db, err := openDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	// Unauthenticated list staff proposals → guard rejects before handler; call handler alone is fine.
+	// Guard: vendor cannot hit staff route (tested via allow funcs).
+	if staffOnly(actor{Kind: "vendor", ID: "x"}, nil) {
+		t.Fatal("vendor must not be staff")
+	}
+	own := httptest.NewRequest("POST", "/api/vendors/prop-vnd/sku-proposals", nil)
+	own.SetPathValue("id", "prop-vnd")
+	if !vendorSelf(actor{Kind: "vendor", ID: "prop-vnd"}, own) {
+		t.Fatal("vendorSelf own id")
+	}
+	reqOther := httptest.NewRequest("POST", "/api/vendors/other/sku-proposals", nil)
+	reqOther.SetPathValue("id", "other")
+	if vendorSelf(actor{Kind: "vendor", ID: "prop-vnd"}, reqOther) {
+		t.Fatal("vendorSelf other id")
+	}
+	_, _ = db.Exec(`INSERT INTO vendors (id, company_name, status, pic) VALUES ('prop-list', 'List Co', 'prospect', '{"name":"L","email":"list@example.com","phone":"081111111111"}') ON CONFLICT DO NOTHING`)
+	req := httptest.NewRequest("POST", "/api/vendors/prop-list/sku-proposals", strings.NewReader(`{"commodityName":"Item List","generalSpec":"Spek panjang\nbaris 2","level1":"UTILITIES"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", "prop-list")
+	rec := httptest.NewRecorder()
+	postSkuProposal(db)(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("propose %d %s", rec.Code, rec.Body)
+	}
+	lreq := httptest.NewRequest("GET", "/api/vendors/prop-list/sku-proposals", nil)
+	lreq.SetPathValue("id", "prop-list")
+	lrec := httptest.NewRecorder()
+	listVendorSkuProposals(db)(lrec, lreq)
+	if lrec.Code != 200 || !strings.Contains(lrec.Body.String(), "Item List") || !strings.Contains(lrec.Body.String(), "pending_review") {
+		t.Fatalf("vendor list %d %s", lrec.Code, lrec.Body)
+	}
+	srec := httptest.NewRecorder()
+	listStaffSkuProposals(db)(srec, httptest.NewRequest("GET", "/api/staff/sku-proposals?status=pending_review", nil))
+	if srec.Code != 200 || !strings.Contains(srec.Body.String(), "prop-list") {
+		t.Fatalf("staff list %d %s", srec.Code, srec.Body)
+	}
+}

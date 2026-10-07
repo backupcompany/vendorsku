@@ -6,6 +6,7 @@ import { skuService, cleanCommodityName } from '../../sku/services/skuService';
 import { Button } from '../../../core/ui/Button';
 import { AiDocumentPriceListUploaderModal } from './AiDocumentPriceListUploaderModal';
 import { ExcelTemplateExportImport } from './ExcelTemplateExportImport';
+import { VendorProposeSkuModal } from './VendorProposeSkuModal';
 import {
   Download,
   Save,
@@ -250,6 +251,7 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isAiDocUploadOpen, setIsAiDocUploadOpen] = useState(false);
+  const [isProposeSkuOpen, setIsProposeSkuOpen] = useState(false);
 
   // Active brand autocomplete row
   const [activeBrandDropdownRow, setActiveBrandDropdownRow] = useState<number | null>(null);
@@ -1100,6 +1102,16 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
                         <span>{bypassScopeFilter ? 'Semua SKU' : 'Scope'}</span>
                       </button>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => setIsProposeSkuOpen(true)}
+                      className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 transition-colors shadow-2xs cursor-pointer"
+                      title="Ajukan produk yang belum ada di katalog RS"
+                    >
+                      <Plus className="h-3 w-3" />
+                      <span>Tambah Produk Baru</span>
+                    </button>
                   </div>
                 </div>
 
@@ -2138,6 +2150,14 @@ export const VendorSpreadsheetGrid: React.FC<VendorSpreadsheetGridProps> = ({
         allMasterSkus={allMasterSkus || masterSkus}
         vendor={vendor}
         onBulkSaveSubmissions={handleBulkSaveFromAiUpload}
+      />
+
+      <VendorProposeSkuModal
+        open={isProposeSkuOpen}
+        vendorId={vendor.id}
+        defaultLevel1={vendor.businessScope?.level1}
+        onClose={() => setIsProposeSkuOpen(false)}
+        onSubmitted={() => showToast('Usulan produk dikirim. Menunggu review Catalog Management.')}
       />
     </div>
   );

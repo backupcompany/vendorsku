@@ -444,3 +444,89 @@ export async function fetchStaffSkus(): Promise<{
     throw apiError(err, 'Daftar SKU gagal dimuat.');
   }
 }
+
+const skuProposalSchema = z.object({
+  id: z.string(),
+  erpCode: z.string(),
+  commodityName: z.string(),
+  generalSpec: z.string(),
+  level1: z.string(),
+  level2: z.string(),
+  level3: z.string(),
+  level4: z.string(),
+  uom: z.string(),
+  brand: z.string().nullish(),
+  partNumber: z.string().nullish(),
+  status: z.enum(['active', 'archived', 'pending_review']),
+  source: z.string().nullish(),
+  rawSpec: z.string().nullish(),
+  vendorId: z.string().nullish(),
+  vendorName: z.string().nullish(),
+  submittedAt: z.string().nullish(),
+  createdAt: z.string().nullish(),
+  updatedAt: z.string().nullish(),
+});
+
+export type SkuProposal = z.infer<typeof skuProposalSchema>;
+
+export async function proposeSku(
+  vendorId: string,
+  body: {
+    commodityName: string;
+    generalSpec: string;
+    level1: string;
+    uom?: string;
+    brand?: string;
+    partNumber?: string;
+  },
+): Promise<SkuProposal> {
+  try {
+    const { data } = await http.post(`/api/vendors/${encodeURIComponent(vendorId)}/sku-proposals`, body);
+    return skuProposalSchema.parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk usulan server tidak sesuai.');
+    throw apiError(err, 'Usulan SKU gagal disimpan.');
+  }
+}
+
+export async function fetchVendorSkuProposals(vendorId: string): Promise<SkuProposal[]> {
+  try {
+    const { data } = await http.get(`/api/vendors/${encodeURIComponent(vendorId)}/sku-proposals`);
+    return z.array(skuProposalSchema).parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk usulan server tidak sesuai.');
+    throw apiError(err, 'Daftar usulan SKU gagal dimuat.');
+  }
+}
+
+export async function fetchStaffSkuProposals(status = 'pending_review'): Promise<SkuProposal[]> {
+  try {
+    const { data } = await http.get('/api/staff/sku-proposals', { params: { status } });
+    return z.array(skuProposalSchema).parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk usulan server tidak sesuai.');
+    throw apiError(err, 'Daftar usulan SKU gagal dimuat.');
+  }
+}
+
+export async function reviewSkuProposal(
+  id: string,
+  body: {
+    decision: 'approve' | 'reject';
+    commodityName?: string;
+    generalSpec?: string;
+    level1?: string;
+    level2?: string;
+    level3?: string;
+    level4?: string;
+    uom?: string;
+  },
+): Promise<SkuProposal> {
+  try {
+    const { data } = await http.post(`/api/staff/sku-proposals/${encodeURIComponent(id)}/review`, body);
+    return skuProposalSchema.parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk usulan server tidak sesuai.');
+    throw apiError(err, 'Review usulan SKU gagal.');
+  }
+}

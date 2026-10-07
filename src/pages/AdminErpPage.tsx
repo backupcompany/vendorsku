@@ -3,6 +3,7 @@ import { navigate } from '../core/router/useAppRouter';
 import { useMasterSku } from '../modules/sku/hooks/useMasterSku';
 import { ErpMasterUpload } from '../modules/admin/components/ErpMasterUpload';
 import { SkuLockManager } from '../modules/admin/components/SkuLockManager';
+import { StaffSkuProposalsPanel } from '../modules/admin/components/StaffSkuProposalsPanel';
 import { TaxonomyFilterTree } from '../modules/sku/components/TaxonomyFilterTree';
 import { SkuSearchBar } from '../modules/sku/components/SkuSearchBar';
 import { Database, ShieldCheck, Lock, Unlock, Trash2, CheckCircle2, Sparkles, AlertCircle, RefreshCw, X, Users, ArrowRight } from 'lucide-react';
@@ -116,7 +117,17 @@ export const AdminErpPage: React.FC = () => {
             <span>{notice}</span>
           </div>
         )}
+      </div>
 
+      <StaffSkuProposalsPanel
+        onChanged={() => {
+          refresh();
+          setNotice('Usulan produk berhasil di-review.');
+          setTimeout(() => setNotice(null), 3000);
+        }}
+      />
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-colors dark:border-slate-800 dark:bg-slate-900">
         {/* Stats */}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
           <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-850">
