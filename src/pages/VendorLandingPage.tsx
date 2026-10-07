@@ -858,12 +858,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                       )}
                     </div>
                   </div>
-                  {/* Reserved height so rules appear without ballooning the page. */}
-                  <div className="min-h-[3.25rem]">
-                    {newVendorPassword ? (
-                      <PasswordChecklist rules={passwordRules(newVendorPassword, email)} />
-                    ) : null}
-                  </div>
+                  <PasswordChecklist rules={passwordRules(newVendorPassword, email)} />
 
                   {/* Optional Accordion: PIC & NPWP — expands inside the card, not the page. */}
                   <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-900/60">
