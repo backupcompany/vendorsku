@@ -113,26 +113,25 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
     fetchSkuTaxonomy().then(setTaxonomy).catch((err) => console.error(err));
   }, []);
 
-  // Categories are the live ERP Level 1 groups; ref_options only adds the Indonesian label and badge.
+  // Business lines are the Master Purchasing Level 1 categories (product_category); the open catalog only adds counts and examples.
   const visualCategories: VisualCategoryOption[] = useMemo(() => {
-    const labels = new Map(categoryOptions.map((o, i) => [o.value, { o, i }]));
-    return taxonomy
-      .map((t) => {
-        const ref = labels.get(t.level1);
-        return {
-          id: t.level1,
-          name: ref?.o.label ?? t.level1,
-          subtitle: String(ref?.o.meta.subtitle ?? t.level2.map((l2) => l2.name).join(', ')),
-          badge: String(ref?.o.meta.badge ?? t.level1),
-          icon: CATEGORY_ICONS[t.level1] ?? <Layers className="h-5 w-5 text-slate-700 dark:text-slate-300" />,
-          level1: t.level1,
-          level2List: t.level2.map((l2) => l2.name),
-          examples: t.examples,
-          count: t.count,
-          sort: ref?.i ?? Number.MAX_SAFE_INTEGER,
-        };
-      })
-      .sort((x, y) => x.sort - y.sort);
+    const live = new Map(taxonomy.map((t) => [t.level1, t]));
+    const level1s = [...new Set([...categoryOptions.map((o) => o.value), ...live.keys()])];
+    return level1s.map((level1) => {
+      const ref = categoryOptions.find((o) => o.value === level1);
+      const t = live.get(level1);
+      return {
+        id: level1,
+        name: ref?.label ?? level1,
+        subtitle: String(ref?.meta.subtitle ?? t?.level2.map((l2) => l2.name).join(', ') ?? ''),
+        badge: level1,
+        icon: CATEGORY_ICONS[level1] ?? <Layers className="h-5 w-5 text-slate-700 dark:text-slate-300" />,
+        level1,
+        level2List: t?.level2.map((l2) => l2.name) ?? [],
+        examples: t?.examples ?? [],
+        count: t?.count ?? 0,
+      };
+    });
   }, [categoryOptions, taxonomy]);
 
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
