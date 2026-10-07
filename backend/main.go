@@ -48,9 +48,10 @@ func main() {
 			FROM ref_options GROUP BY list
 		) o`))
 	})
-	mux.HandleFunc("GET /api/skus/taxonomy", cachedQuery(db, cache, func(*http.Request) string { return "taxonomy" },
-		func(r *http.Request) *sql.Row { return db.QueryRowContext(r.Context(), skuTaxonomy) }))
-	mux.HandleFunc("GET /api/skus/search", skuSearch(db))
+	// SKU taxonomy/search are catalog intelligence — session required (never public scrape).
+	mux.HandleFunc("GET /api/skus/taxonomy", guard(db, anySession, cachedQuery(db, cache, func(*http.Request) string { return "taxonomy" },
+		func(r *http.Request) *sql.Row { return db.QueryRowContext(r.Context(), skuTaxonomy) })))
+	mux.HandleFunc("GET /api/skus/search", guard(db, anySession, skuSearch(db)))
 
 	mux.HandleFunc("GET /api/session", getSession(db))
 	mux.HandleFunc("POST /api/sign-out", postSignOut(db))

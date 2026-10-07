@@ -22,8 +22,16 @@ type SessionState = {
   clearStaff: () => void;
 };
 
-function signOut(realm: SessionRealm) {
-  fetch('/api/sign-out', { method: 'POST', headers: { 'X-Session-Realm': realm } }).catch(() => {});
+/** Server deletes the session row(s); cookie is cleared. keepalive survives navigation. */
+export function endSession(realm: SessionRealm): Promise<void> {
+  return fetch('/api/sign-out', {
+    method: 'POST',
+    headers: { 'X-Session-Realm': realm },
+    credentials: 'same-origin',
+    keepalive: true,
+  })
+    .then(() => undefined)
+    .catch(() => undefined);
 }
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -32,11 +40,11 @@ export const useSessionStore = create<SessionState>((set) => ({
   setVendor: (vendor) => set({ vendor }),
   setStaff: (staff) => set({ staff }),
   clearVendor: () => {
-    signOut('vendor');
+    void endSession('vendor');
     set({ vendor: null });
   },
   clearStaff: () => {
-    signOut('staff');
+    void endSession('staff');
     set({ staff: null });
   },
 }));

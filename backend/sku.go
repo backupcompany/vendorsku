@@ -394,10 +394,16 @@ const skuTaxonomy = `
 func skuSearch(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := strings.Join(strings.Fields(r.URL.Query().Get("q")), " ")
-		if len([]rune(q)) < 2 {
+		runes := []rune(q)
+		if len(runes) < 2 {
 			writeJSON(w, http.StatusOK, []any{})
 			return
 		}
+		if len(runes) > 80 {
+			q = string(runes[:80])
+		}
+		// $1 is bound — never concatenate user text into SQL. Escape LIKE wildcards only.
+		like := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(q)
 		writeQuery(w, db.QueryRowContext(r.Context(), `
 			SELECT coalesce(jsonb_agg(jsonb_build_object(
 				'commodityName', commodity_name, 'generalSpec', general_spec,
@@ -419,6 +425,6 @@ func skuSearch(db *sql.DB) http.HandlerFunc {
 				ORDER BY rank, lower(commodity_name)
 				LIMIT 8
 			) s
-		`, strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(q)))
+		`, like))
 	}
 }

@@ -109,11 +109,8 @@ function proxyGo(req: express.Request, res: express.Response) {
 
 // Health on BFF; AI gated below; all other /api/* proxied to Go (incl. /api/password).
 app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    aiConfigured: Boolean(process.env.GEMINI_API_KEY),
-    timestamp: new Date().toISOString(),
-  });
+  // Do not advertise secrets/config to the public internet.
+  res.json({ status: 'ok' });
 });
 
 // Gemini costs money: require a real signed-in session (kind must be vendor|staff).

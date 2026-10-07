@@ -61,13 +61,14 @@ func requestToken(r *http.Request) (token, realm string) {
 }
 
 // issueSession stores only the token hash, so a leaked sessions table cannot be replayed.
+// Prior sessions for the same account are revoked so an old cookie cannot be reused after a new sign-in.
 func issueSession(ctx context.Context, q dbx, kind, actorID string) (string, error) {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
 	token := hex.EncodeToString(buf)
-	if _, err := q.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at < now()`); err != nil {
+	if _, err := q.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at < now() OR (kind = $1 AND actor_id = $2)`, kind, actorID); err != nil {
 		return "", err
 	}
 	_, err := q.ExecContext(ctx, `
@@ -170,10 +171,22 @@ func getSession(db *sql.DB) http.HandlerFunc {
 
 func postSignOut(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if token, realm := requestToken(r); token != "" {
-			if _, err := db.ExecContext(r.Context(), `DELETE FROM sessions WHERE id = $1`, tokenHash(token)); err != nil {
+		w.Header().Set("Cache-Control", "no-store")
+		token, realm := requestToken(r)
+		if token != "" {
+			// Resolve actor first, then wipe every session for that account (this tab + stolen/old cookies).
+			if a, ok, err := sessionActor(r, db); err != nil {
 				log.Println(err)
+				_, _ = db.ExecContext(r.Context(), `DELETE FROM sessions WHERE id = $1`, tokenHash(token))
+			} else if ok {
+				if _, err := db.ExecContext(r.Context(), `DELETE FROM sessions WHERE kind = $1 AND actor_id = $2`, a.Kind, a.ID); err != nil {
+					log.Println(err)
+				}
+			} else {
+				_, _ = db.ExecContext(r.Context(), `DELETE FROM sessions WHERE id = $1`, tokenHash(token))
 			}
+			clearSessionCookie(w, r, realm)
+		} else if realm := r.Header.Get(realmHeader); realm == "staff" || realm == "vendor" {
 			clearSessionCookie(w, r, realm)
 		}
 		w.WriteHeader(http.StatusNoContent)

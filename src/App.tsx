@@ -168,13 +168,6 @@ export default function App() {
             <span>Standar Penamaan SKU 4 Bagian</span>
             <span>·</span>
             <span>Coverage Rumah Sakit Terstandarisasi</span>
-            <span>·</span>
-            <button
-              onClick={() => navigate('/admin')}
-              className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-            >
-              Akses Staff Internal (/admin)
-            </button>
           </div>
         </div>
       </footer>

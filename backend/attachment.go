@@ -292,7 +292,7 @@ func getSkuAttachment(db *sql.DB) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", contentType)
 		w.Header().Set("Content-Disposition", `inline; filename="`+strings.ReplaceAll(filename, `"`, "")+`"`)
-		w.Header().Set("Cache-Control", "private, max-age=300")
+		w.Header().Set("Cache-Control", "private, no-store")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(data)
 	}

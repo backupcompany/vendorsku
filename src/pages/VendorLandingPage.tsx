@@ -111,9 +111,17 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
   const categoryOptions = useOptions('product_category');
   const hospitalCount = useActiveHospitalCount();
   const [taxonomy, setTaxonomy] = useState<SkuTaxonomy>([]);
+  // Catalog only after OTP session — never scrape SKU taxonomy while logged out.
   useEffect(() => {
-    fetchSkuTaxonomy().then(setTaxonomy).catch((err) => console.error(err));
-  }, []);
+    if (step !== 'product_category') return;
+    let live = true;
+    fetchSkuTaxonomy()
+      .then((t) => live && setTaxonomy(t))
+      .catch((err) => console.error(err));
+    return () => {
+      live = false;
+    };
+  }, [step]);
 
   // Business lines are the Master Purchasing Level 1 categories (product_category); the open catalog only adds counts and examples.
   const visualCategories: VisualCategoryOption[] = useMemo(() => {
@@ -146,6 +154,10 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
   const [addedItemNotification, setAddedItemNotification] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<{ sku: SkuHit; suggestedCatId: string }[]>([]);
   useEffect(() => {
+    if (step !== 'product_category') {
+      setSearchResults([]);
+      return;
+    }
     const q = searchQuery.trim();
     if (q.length < 2) {
       setSearchResults([]);
@@ -161,7 +173,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
       live = false;
       clearTimeout(timer);
     };
-  }, [searchQuery]);
+  }, [searchQuery, step]);
 
   const handleToggleCategory = (catId: string) => {
     setSelectedCategoryIds((prev) => {
@@ -322,18 +334,14 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
         <img
           src={receptionistPhoto}
           alt=""
-          className="w-full h-full object-cover object-left lg:object-[15%_center] filter brightness-[0.98] dark:brightness-[0.60] contrast-[1.03]"
+          className="w-full h-full object-cover object-left lg:object-[15%_center] filter brightness-[0.98] contrast-[1.03] dark:brightness-[1.08] dark:contrast-[1.08] dark:saturate-[1.06]"
           referrerPolicy="no-referrer"
         />
 
-        {/* Sophisticated Dual Gradient Overlay:
-            - Left: clear subtle hospital warmth allowing the welcoming woman to stand out
-            - Right: smooth transition to clean crisp backdrop for the form card */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 lg:hidden" />
-        <div className="hidden lg:block absolute inset-0 bg-gradient-to-r from-black/55 via-[#F4F7FB]/75 to-[#F4F7FB] dark:from-[#071536]/80 dark:via-[#071536]/90 dark:to-[#071536]" />
-        
-        {/* Subtle hospital blue & gold brand tint */}
-        <div className="absolute inset-0 bg-radial from-transparent to-[#1B3F9B]/10 mix-blend-multiply pointer-events-none" />
+        {/* Left stays readable; dark mode keeps the photo visible (not washed out by navy). */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 lg:hidden dark:from-black/20 dark:via-transparent dark:to-black/40" />
+        <div className="hidden lg:block absolute inset-0 bg-gradient-to-r from-black/45 via-[#F4F7FB]/75 to-[#F4F7FB] dark:from-black/20 dark:via-[#071536]/40 dark:to-[#071536]" />
+        <div className="absolute inset-0 bg-radial from-transparent to-[#1B3F9B]/10 mix-blend-multiply pointer-events-none dark:opacity-25" />
       </div>
 
       <header className="relative z-30 w-full border-b border-white/20 bg-white/85 backdrop-blur-md px-4 sm:px-8 py-3.5 shadow-xs dark:border-slate-800 dark:bg-[#071536]/85">
@@ -416,7 +424,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
               </span>
             </div>
 
-            <div className="rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-md p-6 sm:p-8 shadow-2xl dark:border-slate-800 dark:bg-[#0B1A3D]/95 space-y-6">
+            <div className="rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-md p-6 sm:p-8 shadow-2xl dark:border-slate-800 dark:bg-[#0B1A3D]/95 space-y-6 max-h-[min(100%,calc(100dvh-7.5rem))] overflow-y-auto overscroll-contain">
 
               {step === 'profile' && (
                 <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1.5 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
@@ -849,9 +857,14 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
                       )}
                     </div>
                   </div>
-                  {newVendorPassword && <PasswordChecklist rules={passwordRules(newVendorPassword, email)} />}
+                  {/* Reserved height so rules appear without ballooning the page. */}
+                  <div className="min-h-[3.25rem]">
+                    {newVendorPassword ? (
+                      <PasswordChecklist rules={passwordRules(newVendorPassword, email)} />
+                    ) : null}
+                  </div>
 
-                  {/* Optional Accordion: PIC & NPWP */}
+                  {/* Optional Accordion: PIC & NPWP — expands inside the card, not the page. */}
                   <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-900/60">
                     <button
                       type="button"
