@@ -83,6 +83,7 @@ func main() {
 	mux.HandleFunc("GET /api/attachments/{attId}", guard(db, anySession, getSkuAttachment(db)))
 	mux.HandleFunc("GET /api/staff/sku-proposals", staff(listStaffSkuProposals(db)))
 	mux.HandleFunc("POST /api/staff/sku-proposals/{id}/review", staff(reviewSkuProposal(db)))
+	mux.HandleFunc("POST /api/staff/sku-proposals/{id}/ai-standard", staff(saveSkuProposalAI(db)))
 	mux.HandleFunc("GET /api/staff/skus/{id}/attachments", staff(listStaffSkuAttachments(db)))
 	mux.HandleFunc("POST /api/staff/ai-logs", staff(postAiLog(db)))
 

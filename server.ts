@@ -557,6 +557,103 @@ Kembalikan format JSON murni tanpa markdown:
   }
 });
 
+// Catalog Management only: simplify vendor raw name/spec into hospital e-catalog form.
+app.post('/api/ai/standardize-catalog', async (req, res) => {
+  if (res.locals.aiKind !== 'staff') {
+    return res.status(403).json({ error: 'Akses ditolak. Hanya Back Office yang boleh menstandarkan katalog.' });
+  }
+  const commodityName = String(req.body?.commodityName || '').trim();
+  const generalSpec = String(req.body?.generalSpec || '').trim();
+  const level1 = String(req.body?.level1 || '').trim();
+  const brochureText = String(req.body?.brochureText || '').trim().slice(0, 8000);
+  if (!commodityName || !generalSpec) {
+    return res.status(400).json({ error: 'commodityName dan generalSpec wajib diisi.' });
+  }
+
+  const fallback = () => standardizeCatalogFallback(commodityName, generalSpec, level1, brochureText);
+
+  if (!aiClient) {
+    return res.json({ ...fallback(), tokensUsed: 0, model: 'rule-based-offline', fallback: true });
+  }
+
+  try {
+    const prompt = `Anda adalah Catalog Management Siloam Hospitals.
+Tugas: standarisasi data produk vendor menjadi e-katalog rumah sakit yang singkat dan konsisten.
+JANGAN menghapus informasi penting untuk pemilihan produk (material, ukuran, standar/sertifikasi, AQL, tipe).
+Jangan inventarisasi data yang tidak ada di input.
+
+Nama vendor: ${commodityName}
+Spesifikasi vendor (raw):
+${generalSpec}
+Level 1 (jika ada): ${level1 || '-'}
+Cuplikan brosur (opsional):
+${brochureText || '-'}
+
+Output JSON saja:
+{
+  "commodityName": "nama komoditas standar singkat",
+  "generalSpec": "spesifikasi ringkas 1-2 kalimat, atribut kunci dipisah koma",
+  "level1": "kategori purchasing level 1 bahasa Inggris seperti di ERP bila bisa disimpulkan, else kosong",
+  "level2": "sub kategori singkat atau kosong",
+  "level3": "kelompok singkat atau kosong",
+  "level4": "tipe singkat atau kosong",
+  "attributes": { "Material": "...", "Size": "...", "Standard": "..." }
+}`;
+
+    const response = await aiClient.models.generateContent({
+      model: llmModel,
+      contents: prompt,
+      config: { responseMimeType: 'application/json' },
+    });
+    const text = response.text || '{}';
+    const parsed = JSON.parse(text);
+    const usage = (response as { usageMetadata?: { totalTokenCount?: number } }).usageMetadata;
+    return res.json({
+      commodityName: String(parsed.commodityName || commodityName).trim(),
+      generalSpec: String(parsed.generalSpec || generalSpec).trim(),
+      level1: String(parsed.level1 || level1 || '').trim(),
+      level2: String(parsed.level2 || '').trim(),
+      level3: String(parsed.level3 || '').trim(),
+      level4: String(parsed.level4 || '').trim(),
+      attributes: parsed.attributes && typeof parsed.attributes === 'object' ? parsed.attributes : {},
+      tokensUsed: usage?.totalTokenCount || 0,
+      model: llmModel,
+      fallback: false,
+    });
+  } catch (err: any) {
+    console.warn('AI standardize-catalog error, using fallback:', err?.message);
+    return res.json({ ...fallback(), tokensUsed: 0, model: 'rule-based-offline', fallback: true, error: err?.message });
+  }
+});
+
+function standardizeCatalogFallback(name: string, spec: string, level1: string, brochure: string) {
+  const compact = spec
+    .replace(/\s+/g, ' ')
+    .replace(/\b(please note|note that|our product|we offer)\b/gi, '')
+    .trim();
+  const shortSpec = compact.length > 220 ? compact.slice(0, 217).replace(/[,;\s]+$/, '') + '…' : compact;
+  const attrs: Record<string, string> = {};
+  const mat = compact.match(/\b(latex|nitrile|cotton|katun|pvc|silicone|stainless|steel)\b/i);
+  if (mat) attrs.Material = mat[1];
+  const aql = compact.match(/\bAQL\s*([0-9.]+)/i);
+  if (aql) attrs.AQL = aql[1];
+  const std = compact.match(/\b(EN\s*\d+|ASTM\s*[A-Z0-9]+|ISO\s*\d+)\b/gi);
+  if (std) attrs.Standard = std.slice(0, 3).join(', ');
+  if (brochure && !attrs.Standard) {
+    const fromBro = brochure.match(/\b(EN\s*\d+|ASTM\s*[A-Z0-9]+)\b/i);
+    if (fromBro) attrs.Standard = fromBro[1];
+  }
+  return {
+    commodityName: name.replace(/\s+/g, ' ').trim(),
+    generalSpec: shortSpec,
+    level1,
+    level2: '',
+    level3: '',
+    level4: '',
+    attributes: attrs,
+  };
+}
+
 // Rule-based fallback parser for offline capability
 function parseSkuFallback(text: string) {
   const clean = text.trim();

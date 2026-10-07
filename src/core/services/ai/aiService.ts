@@ -362,6 +362,54 @@ export class AIService {
       kemenkesCol: findCol(['izin edar', 'kemenkes', 'akd', 'akl', 'nie', 'no izin']),
     };
   }
+
+  /**
+   * Back Office only: simplify vendor raw product data into hospital catalog form.
+   */
+  async standardizeCatalog(input: {
+    commodityName: string;
+    generalSpec: string;
+    level1?: string;
+    brochureText?: string;
+  }): Promise<{
+    commodityName: string;
+    generalSpec: string;
+    level1: string;
+    level2: string;
+    level3: string;
+    level4: string;
+    attributes: Record<string, unknown>;
+    model: string;
+    fallback?: boolean;
+  }> {
+    const response = await fetch('/api/ai/standardize-catalog', {
+      method: 'POST',
+      headers: aiHeaders(),
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error || `Server returned HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    await tokenLogger.logUsage({
+      action: 'sku_parse',
+      promptPreview: `${input.commodityName} | ${input.generalSpec}`.slice(0, 200),
+      tokensUsed: data.tokensUsed || 0,
+      model: data.model || 'gemini',
+    });
+    return {
+      commodityName: String(data.commodityName || input.commodityName),
+      generalSpec: String(data.generalSpec || input.generalSpec),
+      level1: String(data.level1 || input.level1 || ''),
+      level2: String(data.level2 || ''),
+      level3: String(data.level3 || ''),
+      level4: String(data.level4 || ''),
+      attributes: data.attributes && typeof data.attributes === 'object' ? data.attributes : {},
+      model: String(data.model || ''),
+      fallback: Boolean(data.fallback),
+    };
+  }
 }
 
 export const aiService = new AIService();

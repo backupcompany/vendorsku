@@ -1116,3 +1116,57 @@ func TestSkuAttachments(t *testing.T) {
 		t.Fatalf("delete %d %s", drec.Code, drec.Body)
 	}
 }
+
+func TestSkuProposalAIStandard(t *testing.T) {
+	db, err := openDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`INSERT INTO vendors (id, company_name, status, pic) VALUES ('ai-vnd', 'AI Co', 'prospect', '{"name":"A","email":"ai@example.com","phone":"081244444444"}') ON CONFLICT (id) DO NOTHING`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("POST", "/api/vendors/ai-vnd/sku-proposals", strings.NewReader(`{"commodityName":"Surgical gloves latex powder free ambidextrous","generalSpec":"Natural rubber latex examination gloves, powder-free, ambidextrous, textured, blue, S/M/L/XL, AQL 1.5, EN455 and ASTM.","level1":"DRUGS & CONSUMABLE"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", "ai-vnd")
+	rec := httptest.NewRecorder()
+	postSkuProposal(db)(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("propose %d %s", rec.Code, rec.Body)
+	}
+	var prop struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &prop)
+
+	aiReq := httptest.NewRequest("POST", "/api/staff/sku-proposals/"+prop.ID+"/ai-standard", strings.NewReader(`{"commodityName":"Examination Gloves Latex Powder Free","generalSpec":"Latex, powder free, textured, AQL 1.5, size S–XL, EN 455 / ASTM.","level1":"DRUGS & CONSUMABLE","level2":"CONSUMABLE","level3":"GLOVES","level4":"EXAM","attributes":{"Material":"Latex","AQL":"1.5"},"model":"test-model"}`))
+	aiReq.Header.Set("Content-Type", "application/json")
+	aiReq.SetPathValue("id", prop.ID)
+	aiRec := httptest.NewRecorder()
+	saveSkuProposalAI(db)(aiRec, aiReq)
+	if aiRec.Code != 200 || !strings.Contains(aiRec.Body.String(), "Examination Gloves") || !strings.Contains(aiRec.Body.String(), "Natural rubber") {
+		t.Fatalf("ai save %d %s", aiRec.Code, aiRec.Body)
+	}
+	var rawName, rawSpec, aiName string
+	if err := db.QueryRow(`SELECT source_row->>'rawName', source_row->>'rawSpec', source_row->'ai'->>'commodityName' FROM master_skus WHERE id=$1`, prop.ID).Scan(&rawName, &rawSpec, &aiName); err != nil || !strings.Contains(rawName, "Surgical") || !strings.Contains(rawSpec, "Natural rubber") || aiName != "Examination Gloves Latex Powder Free" {
+		t.Fatalf("layers rawName=%q rawSpec=%q ai=%q err=%v", rawName, rawSpec, aiName, err)
+	}
+
+	ok := httptest.NewRequest("POST", "/api/staff/sku-proposals/"+prop.ID+"/review", strings.NewReader(`{"decision":"approve","commodityName":"Examination Gloves Latex Powder Free","generalSpec":"Latex, powder free, textured, AQL 1.5","level2":"CONSUMABLE","level3":"GLOVES","level4":"EXAM"}`))
+	ok.Header.Set("Content-Type", "application/json")
+	ok.SetPathValue("id", prop.ID)
+	orec := httptest.NewRecorder()
+	reviewSkuProposal(db)(orec, ok)
+	if orec.Code != 200 {
+		t.Fatalf("approve %d %s", orec.Code, orec.Body)
+	}
+	var name, spec, status string
+	var open bool
+	if err := db.QueryRow(`SELECT commodity_name, general_spec, status, is_open_for_vendor, source_row->>'rawSpec' FROM master_skus WHERE id=$1`, prop.ID).Scan(&name, &spec, &status, &open, &rawSpec); err != nil || name != "Examination Gloves Latex Powder Free" || !strings.Contains(spec, "powder free") || status != "active" || !open || !strings.Contains(rawSpec, "Natural rubber") {
+		t.Fatalf("approved name=%q spec=%q status=%s open=%v raw=%q err=%v", name, spec, status, open, rawSpec, err)
+	}
+}

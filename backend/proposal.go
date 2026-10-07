@@ -56,9 +56,11 @@ const proposalSelect = `
 		'status', s.status,
 		'source', s.source,
 		'rawSpec', s.source_row->>'rawSpec',
+		'rawName', coalesce(s.source_row->>'rawName', s.commodity_name),
 		'vendorId', s.source_row->>'vendorId',
 		'vendorName', s.source_row->>'vendorName',
 		'submittedAt', s.source_row->>'submittedAt',
+		'ai', s.source_row->'ai',
 		'createdAt', s.created_at,
 		'updatedAt', s.updated_at,
 		'attachmentCount', (SELECT count(*)::int FROM sku_attachments a WHERE a.sku_id = s.id)
@@ -234,6 +236,83 @@ func listStaffSkuProposals(db *sql.DB) http.HandlerFunc {
 				WHERE s.source = $1 AND s.status = $2
 			) t
 		`, proposalSource, status))
+	}
+}
+
+type proposalAIIn struct {
+	CommodityName string         `json:"commodityName"`
+	GeneralSpec   string         `json:"generalSpec"`
+	Level1        string         `json:"level1"`
+	Level2        string         `json:"level2"`
+	Level3        string         `json:"level3"`
+	Level4        string         `json:"level4"`
+	Attributes    map[string]any `json:"attributes"`
+	Model         string         `json:"model"`
+}
+
+// Staff saves AI standardization into source_row.ai without overwriting vendor rawSpec/rawName.
+func saveSkuProposalAI(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		var in proposalAIIn
+		if !readForm(w, r, &in) {
+			return
+		}
+		name := strings.TrimSpace(in.CommodityName)
+		spec := strings.TrimSpace(in.GeneralSpec)
+		if name == "" || spec == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Hasil AI: nama dan spesifikasi wajib diisi."})
+			return
+		}
+		var status, source string
+		err := db.QueryRowContext(r.Context(), `
+			SELECT status, coalesce(source, '') FROM master_skus WHERE id = $1
+		`, id).Scan(&status, &source)
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "Usulan SKU tidak ditemukan."})
+			return
+		}
+		if err != nil {
+			log.Println(err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan hasil AI."})
+			return
+		}
+		if source != proposalSource || status != "pending_review" {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "SKU ini bukan usulan vendor yang menunggu review."})
+			return
+		}
+		aiDoc := map[string]any{
+			"commodityName": name,
+			"generalSpec":   spec,
+			"level1":        strings.TrimSpace(in.Level1),
+			"level2":        strings.TrimSpace(in.Level2),
+			"level3":        strings.TrimSpace(in.Level3),
+			"level4":        strings.TrimSpace(in.Level4),
+			"attributes":    in.Attributes,
+			"model":         strings.TrimSpace(in.Model),
+		}
+		if aiDoc["attributes"] == nil {
+			aiDoc["attributes"] = map[string]any{}
+		}
+		raw, err := json.Marshal(aiDoc)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan hasil AI."})
+			return
+		}
+		_, err = db.ExecContext(r.Context(), `
+			UPDATE master_skus SET
+				source_row = (coalesce(source_row, '{}'::jsonb)
+					|| jsonb_build_object('rawName', coalesce(source_row->>'rawName', commodity_name))
+					|| jsonb_build_object('ai', $2::jsonb || jsonb_build_object('standardizedAt', now()::text))),
+				updated_at = now()
+			WHERE id = $1
+		`, id, string(raw))
+		if err != nil {
+			log.Println(err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan hasil AI."})
+			return
+		}
+		writeQuery(w, db.QueryRowContext(r.Context(), `SELECT `+proposalSelect+` FROM master_skus s WHERE s.id = $1`, id))
 	}
 }
 

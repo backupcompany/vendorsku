@@ -460,9 +460,23 @@ const skuProposalSchema = z.object({
   status: z.enum(['active', 'archived', 'pending_review']),
   source: z.string().nullish(),
   rawSpec: z.string().nullish(),
+  rawName: z.string().nullish(),
   vendorId: z.string().nullish(),
   vendorName: z.string().nullish(),
   submittedAt: z.string().nullish(),
+  ai: z
+    .object({
+      commodityName: z.string().nullish(),
+      generalSpec: z.string().nullish(),
+      level1: z.string().nullish(),
+      level2: z.string().nullish(),
+      level3: z.string().nullish(),
+      level4: z.string().nullish(),
+      attributes: z.record(z.string(), z.unknown()).nullish(),
+      model: z.string().nullish(),
+      standardizedAt: z.string().nullish(),
+    })
+    .nullish(),
   createdAt: z.string().nullish(),
   updatedAt: z.string().nullish(),
   attachmentCount: z.number().nullish(),
@@ -558,6 +572,28 @@ export async function reviewSkuProposal(
   } catch (err) {
     if (err instanceof z.ZodError) throw new Error('Bentuk usulan server tidak sesuai.');
     throw apiError(err, 'Review usulan SKU gagal.');
+  }
+}
+
+export async function saveSkuProposalAI(
+  id: string,
+  body: {
+    commodityName: string;
+    generalSpec: string;
+    level1?: string;
+    level2?: string;
+    level3?: string;
+    level4?: string;
+    attributes?: Record<string, unknown>;
+    model?: string;
+  },
+): Promise<SkuProposal> {
+  try {
+    const { data } = await http.post(`/api/staff/sku-proposals/${encodeURIComponent(id)}/ai-standard`, body);
+    return skuProposalSchema.parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk usulan server tidak sesuai.');
+    throw apiError(err, 'Hasil AI gagal disimpan.');
   }
 }
 
