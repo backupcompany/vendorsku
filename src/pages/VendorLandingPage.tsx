@@ -330,11 +330,12 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
       {/* "fotonya menjadi background secara keseluruhan,          */}
       {/*  foto wanitanya tetap di sisi kiri page"                 */}
       {/* ======================================================== */}
-      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+      {/* fixed to viewport — page scroll must not stretch/zoom the photo */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <img
           src={receptionistPhoto}
           alt=""
-          className="w-full h-full object-cover object-left lg:object-[15%_center] filter brightness-[0.98] contrast-[1.03] dark:brightness-[1.08] dark:contrast-[1.08] dark:saturate-[1.06]"
+          className="h-full w-full object-cover object-left lg:object-[15%_center] filter brightness-[0.98] contrast-[1.03] dark:brightness-[1.08] dark:contrast-[1.08] dark:saturate-[1.06]"
           referrerPolicy="no-referrer"
         />
 
@@ -424,7 +425,7 @@ export const VendorLandingPage: React.FC<VendorLandingPageProps> = ({
               </span>
             </div>
 
-            <div className="rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-md p-6 sm:p-8 shadow-2xl dark:border-slate-800 dark:bg-[#0B1A3D]/95 space-y-6 max-h-[min(100%,calc(100dvh-7.5rem))] overflow-y-auto overscroll-contain">
+            <div className="rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-md p-6 sm:p-8 shadow-2xl dark:border-slate-800 dark:bg-[#0B1A3D]/95 space-y-6">
 
               {step === 'profile' && (
                 <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1.5 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
