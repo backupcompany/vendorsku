@@ -77,8 +77,13 @@ func main() {
 	mux.HandleFunc("POST /api/vendors/{id}/sku-proposals", guard(db, vendorSelf, postSkuProposal(db)))
 	mux.HandleFunc("POST /api/vendors/{id}/sku-proposals/bulk", guard(db, vendorSelf, postSkuProposalsBulk(db)))
 	mux.HandleFunc("GET /api/vendors/{id}/sku-proposals", guard(db, selfOrStaff, listVendorSkuProposals(db)))
+	mux.HandleFunc("POST /api/vendors/{id}/sku-proposals/{skuId}/attachments", guard(db, vendorSelf, postSkuAttachment(db)))
+	mux.HandleFunc("GET /api/vendors/{id}/sku-proposals/{skuId}/attachments", guard(db, selfOrStaff, listSkuAttachments(db)))
+	mux.HandleFunc("DELETE /api/vendors/{id}/sku-proposals/{skuId}/attachments/{attId}", guard(db, vendorSelf, deleteSkuAttachment(db)))
+	mux.HandleFunc("GET /api/attachments/{attId}", guard(db, anySession, getSkuAttachment(db)))
 	mux.HandleFunc("GET /api/staff/sku-proposals", staff(listStaffSkuProposals(db)))
 	mux.HandleFunc("POST /api/staff/sku-proposals/{id}/review", staff(reviewSkuProposal(db)))
+	mux.HandleFunc("GET /api/staff/skus/{id}/attachments", staff(listStaffSkuAttachments(db)))
 	mux.HandleFunc("POST /api/staff/ai-logs", staff(postAiLog(db)))
 
 	mux.HandleFunc("DELETE /api/vendors/{id}", staff(deleteVendor(db)))

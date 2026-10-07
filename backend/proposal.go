@@ -60,7 +60,8 @@ const proposalSelect = `
 		'vendorName', s.source_row->>'vendorName',
 		'submittedAt', s.source_row->>'submittedAt',
 		'createdAt', s.created_at,
-		'updatedAt', s.updated_at
+		'updatedAt', s.updated_at,
+		'attachmentCount', (SELECT count(*)::int FROM sku_attachments a WHERE a.sku_id = s.id)
 	)`
 
 func normalizeProposal(in proposalIn) (proposalIn, string) {

@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Check, X, RefreshCw } from 'lucide-react';
-import { fetchStaffSkuProposals, reviewSkuProposal, SkuProposal } from '../../../core/api/catalog';
+import { Check, X, RefreshCw, Paperclip } from 'lucide-react';
+import {
+  fetchStaffSkuProposals,
+  fetchStaffSkuAttachments,
+  reviewSkuProposal,
+  openSkuAttachment,
+  SkuProposal,
+  SkuAttachment,
+} from '../../../core/api/catalog';
 import { Button } from '../../../core/ui/Button';
 
 interface Props {
@@ -9,6 +16,7 @@ interface Props {
 
 export const StaffSkuProposalsPanel: React.FC<Props> = ({ onChanged }) => {
   const [items, setItems] = useState<SkuProposal[]>([]);
+  const [atts, setAtts] = useState<Record<string, SkuAttachment[]>>({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -17,7 +25,21 @@ export const StaffSkuProposalsPanel: React.FC<Props> = ({ onChanged }) => {
     setLoading(true);
     setError('');
     try {
-      setItems(await fetchStaffSkuProposals('pending_review'));
+      const list = await fetchStaffSkuProposals('pending_review');
+      setItems(list);
+      const map: Record<string, SkuAttachment[]> = {};
+      await Promise.all(
+        list.map(async (p) => {
+          if ((p.attachmentCount ?? 0) > 0) {
+            try {
+              map[p.id] = await fetchStaffSkuAttachments(p.id);
+            } catch {
+              map[p.id] = [];
+            }
+          }
+        }),
+      );
+      setAtts(map);
     } catch (e: any) {
       setError(e.message || 'Gagal memuat usulan.');
     } finally {
@@ -49,7 +71,7 @@ export const StaffSkuProposalsPanel: React.FC<Props> = ({ onChanged }) => {
         <div>
           <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">Usulan Produk Vendor</h3>
           <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
-            Review sebelum masuk katalog aktif. Spek asli vendor tetap tersimpan.
+            Review sebelum masuk katalog aktif. Spek asli + foto/brosur tetap tersimpan.
           </p>
         </div>
         <button type="button" onClick={load} className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 hover:underline dark:text-amber-300">
@@ -61,7 +83,7 @@ export const StaffSkuProposalsPanel: React.FC<Props> = ({ onChanged }) => {
       {!loading && items.length === 0 && (
         <p className="text-xs text-slate-500">Tidak ada usulan menunggu review.</p>
       )}
-      <div className="space-y-2 max-h-80 overflow-y-auto">
+      <div className="space-y-2 max-h-96 overflow-y-auto">
         {items.map((p) => (
           <div key={p.id} className="rounded-lg border border-amber-200 bg-white p-3 text-xs dark:border-amber-900 dark:bg-slate-900">
             <div className="flex items-start justify-between gap-2">
@@ -71,6 +93,25 @@ export const StaffSkuProposalsPanel: React.FC<Props> = ({ onChanged }) => {
                 <pre className="whitespace-pre-wrap break-words text-[11px] text-slate-700 dark:text-slate-300 max-h-28 overflow-y-auto">
                   {p.rawSpec || p.generalSpec}
                 </pre>
+                {(atts[p.id]?.length || p.attachmentCount) ? (
+                  <div className="pt-1 space-y-0.5">
+                    <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                      <Paperclip className="h-3 w-3" /> Lampiran ({atts[p.id]?.length || p.attachmentCount})
+                    </div>
+                    {(atts[p.id] || []).map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        className="block text-left text-[11px] text-blue-700 hover:underline dark:text-blue-300"
+                        onClick={() => openSkuAttachment(a.id)}
+                        title={a.extractedTextPreview || a.filename}
+                      >
+                        {a.kind === 'photo' ? 'Foto' : 'PDF'}: {a.filename}
+                        {a.hasExtractedText ? ' · teks terindeks' : ''}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div className="flex shrink-0 flex-col gap-1">
                 <Button type="button" disabled={busyId === p.id} onClick={() => act(p.id, 'approve')} className="!px-2 !py-1 !text-[11px]">

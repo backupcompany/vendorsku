@@ -1,8 +1,18 @@
 import React, { useRef, useState } from 'react';
-import { Download, Upload, Check, AlertTriangle } from 'lucide-react';
+import { Download, Upload, Check, AlertTriangle, Image, FileText, Trash2 } from 'lucide-react';
 import { Modal } from '../../../core/ui/Modal';
 import { Button } from '../../../core/ui/Button';
-import { proposeSku, proposeSkusBulk, SkuProposal, SkuProposalInput } from '../../../core/api/catalog';
+import {
+  proposeSku,
+  proposeSkusBulk,
+  uploadSkuAttachment,
+  fetchSkuAttachments,
+  deleteSkuAttachment,
+  openSkuAttachment,
+  SkuProposal,
+  SkuProposalInput,
+  SkuAttachment,
+} from '../../../core/api/catalog';
 import { useOptions } from '../../../core/api/options';
 import { vendorService } from '../services/vendorService';
 
@@ -22,7 +32,7 @@ export const VendorProposeSkuModal: React.FC<Props> = ({
   onSubmitted,
 }) => {
   const categories = useOptions('product_category');
-  const [tab, setTab] = useState<'manual' | 'excel'>('manual');
+  const [tab, setTab] = useState<'manual' | 'excel' | 'attach'>('manual');
   const [commodityName, setCommodityName] = useState('');
   const [generalSpec, setGeneralSpec] = useState('');
   const [level1, setLevel1] = useState(defaultLevel1 || '');
@@ -32,9 +42,18 @@ export const VendorProposeSkuModal: React.FC<Props> = ({
   const [saving, setSaving] = useState(false);
   const [validItems, setValidItems] = useState<SkuProposalInput[]>([]);
   const [excelErrors, setExcelErrors] = useState<{ row: number; reason: string }[]>([]);
+  const [attachSkuId, setAttachSkuId] = useState<string | null>(null);
+  const [attachName, setAttachName] = useState('');
+  const [attachments, setAttachments] = useState<SkuAttachment[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const pdfRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
+
+  const refreshAttachments = async (skuId: string) => {
+    setAttachments(await fetchSkuAttachments(vendorId, skuId));
+  };
 
   const submitManual = async () => {
     setError('');
@@ -56,7 +75,10 @@ export const VendorProposeSkuModal: React.FC<Props> = ({
       setGeneralSpec('');
       setBrand('');
       onSubmitted(saved);
-      onClose();
+      setAttachSkuId(saved.id);
+      setAttachName(saved.commodityName);
+      setTab('attach');
+      await refreshAttachments(saved.id);
     } catch (e: any) {
       setError(e.message || 'Gagal mengirim usulan.');
     } finally {
@@ -101,32 +123,94 @@ export const VendorProposeSkuModal: React.FC<Props> = ({
     }
   };
 
+  const onAttachFile = async (kind: 'photo' | 'brochure', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !attachSkuId) return;
+    setError('');
+    setSaving(true);
+    try {
+      await uploadSkuAttachment(vendorId, attachSkuId, kind, file);
+      await refreshAttachments(attachSkuId);
+    } catch (err: any) {
+      setError(err.message || 'Gagal mengunggah lampiran.');
+    } finally {
+      setSaving(false);
+      e.target.value = '';
+    }
+  };
+
+  const removeAtt = async (attId: string) => {
+    if (!attachSkuId) return;
+    try {
+      await deleteSkuAttachment(vendorId, attachSkuId, attId);
+      await refreshAttachments(attachSkuId);
+    } catch (err: any) {
+      setError(err.message || 'Gagal menghapus.');
+    }
+  };
+
   return (
     <Modal isOpen={open} onClose={onClose} title="Tambah Produk / SKU Baru" maxWidth="2xl">
       <div className="space-y-3 text-sm">
-        <div className="flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
-          <button
-            type="button"
-            onClick={() => setTab('manual')}
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold ${tab === 'manual' ? 'bg-white shadow-sm dark:bg-slate-900' : 'text-slate-500'}`}
-          >
-            Input Manual
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('excel')}
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold ${tab === 'excel' ? 'bg-white shadow-sm dark:bg-slate-900' : 'text-slate-500'}`}
-          >
-            Upload Excel
-          </button>
-        </div>
+        {tab !== 'attach' && (
+          <div className="flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+            <button
+              type="button"
+              onClick={() => setTab('manual')}
+              className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold ${tab === 'manual' ? 'bg-white shadow-sm dark:bg-slate-900' : 'text-slate-500'}`}
+            >
+              Input Manual
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('excel')}
+              className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold ${tab === 'excel' ? 'bg-white shadow-sm dark:bg-slate-900' : 'text-slate-500'}`}
+            >
+              Upload Excel
+            </button>
+          </div>
+        )}
 
-        <p className="text-xs text-slate-500">
-          Produk belum langsung masuk katalog aktif. Tim Catalog Management akan mereview usulan Anda.
-        </p>
-
-        {tab === 'manual' ? (
+        {tab === 'attach' ? (
           <>
+            <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+              Usulan “{attachName}” tersimpan. Opsional: unggah foto produk (JPG/PNG, maks 2MB, 5 file) dan brosur PDF (maks 5MB, 3 file).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <input ref={photoRef} type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" className="hidden" onChange={(e) => onAttachFile('photo', e)} />
+              <input ref={pdfRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => onAttachFile('brochure', e)} />
+              <Button type="button" size="sm" variant="outline" isLoading={saving} icon={<Image className="h-3.5 w-3.5" />} onClick={() => photoRef.current?.click()}>
+                Unggah Foto
+              </Button>
+              <Button type="button" size="sm" variant="outline" isLoading={saving} icon={<FileText className="h-3.5 w-3.5" />} onClick={() => pdfRef.current?.click()}>
+                Unggah Brosur PDF
+              </Button>
+            </div>
+            {attachments.length > 0 && (
+              <ul className="space-y-1 text-xs">
+                {attachments.map((a) => (
+                  <li key={a.id} className="flex items-center justify-between gap-2 rounded border border-slate-200 px-2 py-1.5 dark:border-slate-700">
+                    <button type="button" className="truncate text-left font-medium text-blue-700 hover:underline dark:text-blue-300" onClick={() => openSkuAttachment(a.id)}>
+                      {a.kind === 'photo' ? '🖼' : '📄'} {a.filename} ({Math.round(a.byteSize / 1024)} KB)
+                      {a.hasExtractedText ? ' · teks terindeks' : ''}
+                    </button>
+                    <button type="button" onClick={() => removeAtt(a.id)} className="text-red-600 hover:text-red-800">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {error && <p className="text-xs text-red-600">{error}</p>}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" onClick={onClose}>Selesai</Button>
+            </div>
+          </>
+        ) : tab === 'manual' ? (
+          <>
+            <p className="text-xs text-slate-500">
+              Produk belum langsung masuk katalog aktif. Tim Catalog Management akan mereview usulan Anda.
+            </p>
             <label className="block space-y-1">
               <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Nama Item / Komoditas *</span>
               <input
@@ -202,9 +286,8 @@ export const VendorProposeSkuModal: React.FC<Props> = ({
               </Button>
             </div>
             <p className="text-[11px] text-slate-500">
-              Kolom wajib: Nama Item, Spesifikasi, Kategori Level 1. Opsional: Satuan, Brand, Part Number. Maks 200 baris.
+              Kolom wajib: Nama Item, Spesifikasi, Kategori Level 1. Foto/brosur bisa ditambahkan setelah usulan per-item (input manual).
             </p>
-
             {excelErrors.length > 0 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2 max-h-28 overflow-y-auto dark:border-amber-900 dark:bg-amber-950/30">
                 <div className="flex items-center gap-1 text-[11px] font-semibold text-amber-800 dark:text-amber-300 mb-1">
@@ -217,7 +300,6 @@ export const VendorProposeSkuModal: React.FC<Props> = ({
                 </ul>
               </div>
             )}
-
             {validItems.length > 0 && (
               <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 max-h-56">
                 <table className="w-full text-left text-[11px]">
@@ -242,16 +324,10 @@ export const VendorProposeSkuModal: React.FC<Props> = ({
                 </table>
               </div>
             )}
-
             {error && <p className="text-xs text-red-600">{error}</p>}
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" variant="secondary" onClick={onClose}>Batal</Button>
-              <Button
-                type="button"
-                onClick={submitExcel}
-                disabled={saving || validItems.length === 0}
-                icon={<Check className="h-4 w-4" />}
-              >
+              <Button type="button" onClick={submitExcel} disabled={saving || validItems.length === 0} icon={<Check className="h-4 w-4" />}>
                 {saving ? 'Mengirim…' : `Kirim ${validItems.length} Usulan`}
               </Button>
             </div>

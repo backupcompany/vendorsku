@@ -465,7 +465,23 @@ const skuProposalSchema = z.object({
   submittedAt: z.string().nullish(),
   createdAt: z.string().nullish(),
   updatedAt: z.string().nullish(),
+  attachmentCount: z.number().nullish(),
 });
+
+const skuAttachmentSchema = z.object({
+  id: z.string(),
+  skuId: z.string(),
+  vendorId: z.string().nullish(),
+  kind: z.enum(['photo', 'brochure']),
+  filename: z.string(),
+  contentType: z.string(),
+  byteSize: z.number(),
+  hasExtractedText: z.boolean().nullish(),
+  extractedTextPreview: z.string().nullish(),
+  createdAt: z.string().nullish(),
+});
+
+export type SkuAttachment = z.infer<typeof skuAttachmentSchema>;
 
 export type SkuProposal = z.infer<typeof skuProposalSchema>;
 
@@ -543,4 +559,81 @@ export async function reviewSkuProposal(
     if (err instanceof z.ZodError) throw new Error('Bentuk usulan server tidak sesuai.');
     throw apiError(err, 'Review usulan SKU gagal.');
   }
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const i = result.indexOf(',');
+      resolve(i >= 0 ? result.slice(i + 1) : result);
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function uploadSkuAttachment(
+  vendorId: string,
+  skuId: string,
+  kind: 'photo' | 'brochure',
+  file: File,
+): Promise<SkuAttachment> {
+  try {
+    const dataBase64 = await fileToBase64(file);
+    const { data } = await http.post(
+      `/api/vendors/${encodeURIComponent(vendorId)}/sku-proposals/${encodeURIComponent(skuId)}/attachments`,
+      {
+        kind,
+        filename: file.name,
+        contentType: file.type || (kind === 'photo' ? 'image/jpeg' : 'application/pdf'),
+        dataBase64,
+      },
+    );
+    return skuAttachmentSchema.parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk lampiran server tidak sesuai.');
+    throw apiError(err, 'Lampiran gagal diunggah.');
+  }
+}
+
+export async function fetchSkuAttachments(vendorId: string, skuId: string): Promise<SkuAttachment[]> {
+  try {
+    const { data } = await http.get(
+      `/api/vendors/${encodeURIComponent(vendorId)}/sku-proposals/${encodeURIComponent(skuId)}/attachments`,
+    );
+    return z.array(skuAttachmentSchema).parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk lampiran server tidak sesuai.');
+    throw apiError(err, 'Daftar lampiran gagal dimuat.');
+  }
+}
+
+export async function fetchStaffSkuAttachments(skuId: string): Promise<SkuAttachment[]> {
+  try {
+    const { data } = await http.get(`/api/staff/skus/${encodeURIComponent(skuId)}/attachments`);
+    return z.array(skuAttachmentSchema).parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk lampiran server tidak sesuai.');
+    throw apiError(err, 'Daftar lampiran gagal dimuat.');
+  }
+}
+
+export async function deleteSkuAttachment(vendorId: string, skuId: string, attId: string): Promise<void> {
+  try {
+    await http.delete(
+      `/api/vendors/${encodeURIComponent(vendorId)}/sku-proposals/${encodeURIComponent(skuId)}/attachments/${encodeURIComponent(attId)}`,
+    );
+  } catch (err) {
+    throw apiError(err, 'Lampiran gagal dihapus.');
+  }
+}
+
+/** Opens attachment in a new tab; uses axios so X-Session-Realm is sent. */
+export async function openSkuAttachment(attId: string): Promise<void> {
+  const res = await http.get(`/api/attachments/${encodeURIComponent(attId)}`, { responseType: 'blob' });
+  const url = URL.createObjectURL(res.data);
+  window.open(url, '_blank', 'noopener,noreferrer');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

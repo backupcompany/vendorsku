@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -1018,5 +1019,100 @@ ok := httptest.NewRequest("POST", "/api/vendors/bulk-vnd/sku-proposals/bulk", st
 	var pending int
 	if err := db.QueryRow(`SELECT count(*) FROM master_skus WHERE id IN ($1,$2) AND status='pending_review' AND is_open_for_vendor=false`, out.IDs[0], out.IDs[1]).Scan(&pending); err != nil || pending != 2 {
 		t.Fatalf("pending=%d err=%v", pending, err)
+	}
+}
+
+func TestSkuAttachments(t *testing.T) {
+	db, err := openDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`INSERT INTO vendors (id, company_name, status, pic) VALUES ('att-vnd', 'Att Co', 'prospect', '{"name":"A","email":"att@example.com","phone":"081233333333"}') ON CONFLICT (id) DO NOTHING`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("POST", "/api/vendors/att-vnd/sku-proposals", strings.NewReader(`{"commodityName":"Item Att","generalSpec":"Spek","level1":"UTILITIES"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", "att-vnd")
+	rec := httptest.NewRecorder()
+	postSkuProposal(db)(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("propose %d %s", rec.Code, rec.Body)
+	}
+	var prop struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &prop)
+
+	png := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0}
+	b64 := base64.StdEncoding.EncodeToString(png)
+	body := `{"kind":"photo","filename":"x.png","contentType":"image/png","dataBase64":"` + b64 + `"}`
+	areq := httptest.NewRequest("POST", "/api/vendors/att-vnd/sku-proposals/"+prop.ID+"/attachments", strings.NewReader(body))
+	areq.Header.Set("Content-Type", "application/json")
+	areq.SetPathValue("id", "att-vnd")
+	areq.SetPathValue("skuId", prop.ID)
+	arec := httptest.NewRecorder()
+	postSkuAttachment(db)(arec, areq)
+	if arec.Code != 200 {
+		t.Fatalf("attach photo %d %s", arec.Code, arec.Body)
+	}
+	var att struct {
+		ID   string `json:"id"`
+		Kind string `json:"kind"`
+	}
+	_ = json.Unmarshal(arec.Body.Bytes(), &att)
+	if att.Kind != "photo" || att.ID == "" {
+		t.Fatalf("att %#v", att)
+	}
+
+	// wrong kind vs magic
+	bad := httptest.NewRequest("POST", "/api/vendors/att-vnd/sku-proposals/"+prop.ID+"/attachments", strings.NewReader(`{"kind":"brochure","filename":"x.pdf","contentType":"application/pdf","dataBase64":"`+b64+`"}`))
+	bad.Header.Set("Content-Type", "application/json")
+	bad.SetPathValue("id", "att-vnd")
+	bad.SetPathValue("skuId", prop.ID)
+	brec := httptest.NewRecorder()
+	postSkuAttachment(db)(brec, bad)
+	if brec.Code != 400 {
+		t.Fatalf("mismatch kind %d", brec.Code)
+	}
+
+	pdf := []byte("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n(Surgical Gloves Latex AQL 1.5)\ntrailer\n%%EOF")
+	pb64 := base64.StdEncoding.EncodeToString(pdf)
+	preq := httptest.NewRequest("POST", "/api/vendors/att-vnd/sku-proposals/"+prop.ID+"/attachments", strings.NewReader(`{"kind":"brochure","filename":"brosur.pdf","contentType":"application/pdf","dataBase64":"`+pb64+`"}`))
+	preq.Header.Set("Content-Type", "application/json")
+	preq.SetPathValue("id", "att-vnd")
+	preq.SetPathValue("skuId", prop.ID)
+	prec := httptest.NewRecorder()
+	postSkuAttachment(db)(prec, preq)
+	if prec.Code != 200 || !strings.Contains(prec.Body.String(), `"hasExtractedText":true`) {
+		t.Fatalf("pdf %d %s", prec.Code, prec.Body)
+	}
+	var extracted string
+	if err := db.QueryRow(`SELECT extracted_text FROM sku_attachments WHERE sku_id=$1 AND kind='brochure'`, prop.ID).Scan(&extracted); err != nil || !strings.Contains(extracted, "Gloves") {
+		t.Fatalf("extracted %q err=%v", extracted, err)
+	}
+
+	lreq := httptest.NewRequest("GET", "/api/vendors/att-vnd/sku-proposals/"+prop.ID+"/attachments", nil)
+	lreq.SetPathValue("id", "att-vnd")
+	lreq.SetPathValue("skuId", prop.ID)
+	lreq = lreq.WithContext(context.WithValue(lreq.Context(), actorKey{}, actor{Kind: "vendor", ID: "att-vnd"}))
+	lrec := httptest.NewRecorder()
+	listSkuAttachments(db)(lrec, lreq)
+	if lrec.Code != 200 || !strings.Contains(lrec.Body.String(), "x.png") || !strings.Contains(lrec.Body.String(), "brosur.pdf") {
+		t.Fatalf("list %d %s", lrec.Code, lrec.Body)
+	}
+
+	dreq := httptest.NewRequest("DELETE", "/api/vendors/att-vnd/sku-proposals/"+prop.ID+"/attachments/"+att.ID, nil)
+	dreq.SetPathValue("id", "att-vnd")
+	dreq.SetPathValue("skuId", prop.ID)
+	dreq.SetPathValue("attId", att.ID)
+	drec := httptest.NewRecorder()
+	deleteSkuAttachment(db)(drec, dreq)
+	if drec.Code != 204 {
+		t.Fatalf("delete %d %s", drec.Code, drec.Body)
 	}
 }
