@@ -84,11 +84,20 @@ func maskEmail(email string) string {
 	return local[:keep] + strings.Repeat("•", max(len(local)-keep, 3)) + "@" + domain
 }
 
+func isLoopbackHost(host string) bool {
+	h := strings.ToLower(strings.TrimSpace(host))
+	if i := strings.IndexByte(h, ':'); i >= 0 {
+		h = h[:i]
+	}
+	return h == "127.0.0.1" || h == "localhost" || h == "::1" || h == "0.0.0.0"
+}
+
 func appBaseURL(r *http.Request) string {
+	// Prefer explicit public URL — BFF proxies with Host=127.0.0.1 so r.Host is useless in prod.
 	if v := strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_APP_URL")), "/"); v != "" {
 		return v
 	}
-	if o := strings.TrimRight(strings.TrimSpace(r.Header.Get("Origin")), "/"); o != "" {
+	if o := strings.TrimRight(strings.TrimSpace(r.Header.Get("Origin")), "/"); o != "" && !isLoopbackHost(o) {
 		return o
 	}
 	proto := r.Header.Get("X-Forwarded-Proto")
@@ -103,7 +112,7 @@ func appBaseURL(r *http.Request) string {
 	if host == "" {
 		host = r.Host
 	}
-	if host == "" {
+	if host == "" || isLoopbackHost(host) {
 		return ""
 	}
 	return proto + "://" + host

@@ -67,13 +67,18 @@ function proxyGo(req: express.Request, res: express.Response) {
     const v = req.headers[name];
     return typeof v === 'string' ? v : Array.isArray(v) ? v[0] : undefined;
   };
+  // Go builds password-reset links from PUBLIC_APP_URL / X-Forwarded-* — never leave Host as 127.0.0.1.
+  const fwdHost = pick('x-forwarded-host') || pick('host') || req.hostname;
   const headers: http.OutgoingHttpHeaders = {
     host: `127.0.0.1:${goPort}`,
     'content-type': pick('content-type') || 'application/json',
     accept: pick('accept') || 'application/json',
     'x-forwarded-for': clientIp,
     'x-forwarded-proto': pick('x-forwarded-proto') || (req.secure ? 'https' : 'http'),
+    'x-forwarded-host': fwdHost,
   };
+  const origin = pick('origin');
+  if (origin) headers.origin = origin;
   const cookie = pick('cookie');
   if (cookie) headers.cookie = cookie;
   const realm = pick('x-session-realm');
