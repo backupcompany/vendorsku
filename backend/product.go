@@ -3,20 +3,33 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
 type productIn struct {
-	Name       string `json:"name"`
-	Brand      string `json:"brand"`
-	PartNumber string `json:"partNumber"`
-	Spec       string `json:"spec"`
+	Name           string  `json:"name"`
+	Brand          string  `json:"brand"`
+	PartNumber     string  `json:"partNumber"`
+	Spec           string  `json:"spec"`
+	UOM            string  `json:"uom"`
+	IzinEdar       string  `json:"izinEdar"`
+	IzinEdarUntil  string  `json:"izinEdarUntil"`
+	LkppPrice      int64   `json:"lkppPrice"`
+	LkppURL        string  `json:"lkppUrl"`
+	PriceList      int64   `json:"priceList"`
+	DiscountPct    float64 `json:"discountPct"`
+	MOQ            int     `json:"moq"`
+	LeadTimeDays   int     `json:"leadTimeDays"`
+	PriceValidUntil string `json:"priceValidUntil"`
 }
 
 type productLinkIn struct {
@@ -31,6 +44,18 @@ const productDoc = `
 		'brand', p.brand,
 		'partNumber', p.part_number,
 		'spec', p.spec,
+		'uom', p.uom,
+		'izinEdar', p.izin_edar,
+		'izinEdarUntil', p.izin_edar_until,
+		'lkppPrice', p.lkpp_price,
+		'lkppUrl', p.lkpp_url,
+		'priceList', p.price_list,
+		'discountPct', p.discount_pct,
+		'nettPrice', CASE WHEN p.price_list > 0 THEN round(p.price_list::numeric * (1 - p.discount_pct / 100))::bigint ELSE 0 END,
+		'moq', p.moq,
+		'leadTimeDays', p.lead_time_days,
+		'priceValidUntil', p.price_valid_until,
+		'hasPhoto', (p.photo_data IS NOT NULL),
 		'skuId', p.sku_id,
 		'linkedSku', CASE WHEN s.id IS NULL THEN NULL ELSE jsonb_build_object(
 			'id', s.id,
@@ -53,13 +78,91 @@ func normalizeProduct(in productIn) (productIn, string) {
 	in.Brand = strings.TrimSpace(in.Brand)
 	in.PartNumber = strings.TrimSpace(in.PartNumber)
 	in.Spec = strings.TrimSpace(in.Spec)
+	in.UOM = strings.TrimSpace(in.UOM)
+	in.IzinEdar = strings.TrimSpace(in.IzinEdar)
+	in.IzinEdarUntil = strings.TrimSpace(in.IzinEdarUntil)
+	in.LkppURL = strings.TrimSpace(in.LkppURL)
+	in.PriceValidUntil = strings.TrimSpace(in.PriceValidUntil)
 	if in.Name == "" {
 		return in, "Nama produk wajib diisi."
 	}
 	if utf8.RuneCountInString(in.Name) > 200 {
 		return in, "Nama produk terlalu panjang."
 	}
+	if in.DiscountPct < 0 || in.DiscountPct > 100 {
+		return in, "Diskon harus 0–100%."
+	}
+	if in.PriceList < 0 || in.LkppPrice < 0 {
+		return in, "Harga tidak boleh negatif."
+	}
+	if in.MOQ < 0 || in.LeadTimeDays < 0 {
+		return in, "MOQ dan lead time tidak boleh negatif."
+	}
+	if in.MOQ == 0 {
+		in.MOQ = 1
+	}
+	if in.LeadTimeDays == 0 {
+		in.LeadTimeDays = 7
+	}
+	if in.LkppURL != "" {
+		if !strings.HasPrefix(in.LkppURL, "http://") && !strings.HasPrefix(in.LkppURL, "https://") {
+			return in, "URL LKPP harus diawali http:// atau https://."
+		}
+	}
+	for _, d := range []struct{ label, v string }{{"Masa izin edar", in.IzinEdarUntil}, {"Masa berlaku harga", in.PriceValidUntil}} {
+		if d.v == "" {
+			continue
+		}
+		if _, err := time.Parse("2006-01-02", d.v); err != nil {
+			return in, d.label + " harus format YYYY-MM-DD."
+		}
+	}
 	return in, ""
+}
+
+func nullDate(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+func nullLkpp(n int64) any {
+	if n <= 0 {
+		return nil
+	}
+	return n
+}
+
+// syncProductOffer writes vendor_prices when product is linked and has a price list + brand.
+func syncProductOffer(ctx context.Context, db *sql.DB, vendorID, skuID string, in productIn) {
+	if skuID == "" || in.PriceList <= 0 || in.Brand == "" {
+		return
+	}
+	validUntil := in.PriceValidUntil
+	if validUntil == "" {
+		validUntil = time.Now().AddDate(1, 0, 0).Format("2006-01-02")
+	}
+	var lkpp *int64
+	if in.LkppPrice > 0 {
+		v := in.LkppPrice
+		lkpp = &v
+	}
+	_, _, _ = saveOffer(ctx, db, vendorID, offerForm{
+		SkuID:           skuID,
+		Brand:           in.Brand,
+		PartNumber:      in.PartNumber,
+		SpecDetail:      in.Spec,
+		PriceList:       in.PriceList,
+		Discount:        in.DiscountPct,
+		LkppPrice:       lkpp,
+		LinkLkpp:        in.LkppURL,
+		UOM:             in.UOM,
+		MOQ:             in.MOQ,
+		LeadTimeDays:    in.LeadTimeDays,
+		PriceValidUntil: validUntil,
+		KemenkesLicense: in.IzinEdar,
+	})
 }
 
 func listVendorProducts(db *sql.DB) http.HandlerFunc {
@@ -92,9 +195,12 @@ func postVendorProduct(db *sql.DB) http.HandlerFunc {
 		}
 		vendorID := r.PathValue("id")
 		_, err = db.ExecContext(r.Context(), `
-			INSERT INTO vendor_products (id, vendor_id, name, brand, part_number, spec)
-			VALUES ($1, $2, $3, $4, $5, $6)
-		`, id, vendorID, in.Name, in.Brand, in.PartNumber, in.Spec)
+			INSERT INTO vendor_products (
+				id, vendor_id, name, brand, part_number, spec, uom, izin_edar, izin_edar_until,
+				lkpp_price, lkpp_url, price_list, discount_pct, moq, lead_time_days, price_valid_until
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+		`, id, vendorID, in.Name, in.Brand, in.PartNumber, in.Spec, in.UOM, in.IzinEdar, nullDate(in.IzinEdarUntil),
+			nullLkpp(in.LkppPrice), in.LkppURL, in.PriceList, in.DiscountPct, in.MOQ, in.LeadTimeDays, nullDate(in.PriceValidUntil))
 		if err != nil {
 			log.Println(err)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan produk."})
@@ -123,10 +229,15 @@ func patchVendorProduct(db *sql.DB) http.HandlerFunc {
 		}
 		vendorID, productID := r.PathValue("id"), r.PathValue("productId")
 		res, err := db.ExecContext(r.Context(), `
-			UPDATE vendor_products
-			SET name = $1, brand = $2, part_number = $3, spec = $4, updated_at = now()
-			WHERE id = $5 AND vendor_id = $6
-		`, in.Name, in.Brand, in.PartNumber, in.Spec, productID, vendorID)
+			UPDATE vendor_products SET
+				name = $1, brand = $2, part_number = $3, spec = $4, uom = $5,
+				izin_edar = $6, izin_edar_until = $7, lkpp_price = $8, lkpp_url = $9,
+				price_list = $10, discount_pct = $11, moq = $12, lead_time_days = $13,
+				price_valid_until = $14, updated_at = now()
+			WHERE id = $15 AND vendor_id = $16
+		`, in.Name, in.Brand, in.PartNumber, in.Spec, in.UOM, in.IzinEdar, nullDate(in.IzinEdarUntil),
+			nullLkpp(in.LkppPrice), in.LkppURL, in.PriceList, in.DiscountPct, in.MOQ, in.LeadTimeDays,
+			nullDate(in.PriceValidUntil), productID, vendorID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal mengubah produk."})
 			return
@@ -136,6 +247,9 @@ func patchVendorProduct(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "Produk tidak ditemukan."})
 			return
 		}
+		var skuID string
+		_ = db.QueryRowContext(r.Context(), `SELECT coalesce(sku_id, '') FROM vendor_products WHERE id = $1`, productID).Scan(&skuID)
+		syncProductOffer(r.Context(), db, vendorID, skuID, in)
 		writeQuery(w, db.QueryRowContext(r.Context(), `
 			SELECT `+productDoc+`
 			FROM vendor_products p
@@ -185,7 +299,9 @@ func linkVendorProduct(db *sql.DB) http.HandlerFunc {
 		}
 		res, err := db.ExecContext(r.Context(), `
 			UPDATE vendor_products
-			SET sku_id = $1, updated_at = now()
+			SET sku_id = $1,
+				uom = CASE WHEN trim(coalesce(uom, '')) = '' THEN coalesce((SELECT uom FROM master_skus WHERE id = $1), '') ELSE uom END,
+				updated_at = now()
 			WHERE id = $2 AND vendor_id = $3
 		`, in.SkuID, productID, vendorID)
 		if err != nil {
@@ -201,12 +317,108 @@ func linkVendorProduct(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "Produk tidak ditemukan."})
 			return
 		}
+		var stored productIn
+		var skuID string
+		err = db.QueryRowContext(r.Context(), `
+			SELECT name, brand, part_number, spec, uom, izin_edar, coalesce(izin_edar_until::text, ''),
+				coalesce(lkpp_price, 0), lkpp_url, price_list, discount_pct, moq, lead_time_days,
+				coalesce(price_valid_until::text, ''), coalesce(sku_id, '')
+			FROM vendor_products WHERE id = $1 AND vendor_id = $2
+		`, productID, vendorID).Scan(
+			&stored.Name, &stored.Brand, &stored.PartNumber, &stored.Spec, &stored.UOM, &stored.IzinEdar, &stored.IzinEdarUntil,
+			&stored.LkppPrice, &stored.LkppURL, &stored.PriceList, &stored.DiscountPct, &stored.MOQ, &stored.LeadTimeDays,
+			&stored.PriceValidUntil, &skuID,
+		)
+		if err == nil {
+			syncProductOffer(r.Context(), db, vendorID, skuID, stored)
+		}
 		writeQuery(w, db.QueryRowContext(r.Context(), `
 			SELECT `+productDoc+`
 			FROM vendor_products p
 			LEFT JOIN master_skus s ON s.id = p.sku_id
 			WHERE p.id = $1 AND p.vendor_id = $2
 		`, productID, vendorID))
+	}
+}
+
+func postVendorProductPhoto(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Filename    string `json:"filename"`
+			ContentType string `json:"contentType"`
+			DataBase64  string `json:"dataBase64"`
+		}
+		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<20))
+		if err := dec.Decode(&in); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Form tidak valid."})
+			return
+		}
+		io.Copy(io.Discard, r.Body)
+		filename := strings.TrimSpace(in.Filename)
+		if filename == "" || len(filename) > 200 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Nama file wajib diisi."})
+			return
+		}
+		raw := strings.TrimSpace(in.DataBase64)
+		if i := strings.Index(raw, ","); strings.HasPrefix(raw, "data:") && i > 0 {
+			raw = raw[i+1:]
+		}
+		data, err := base64.StdEncoding.DecodeString(raw)
+		if err != nil {
+			data, err = base64.RawStdEncoding.DecodeString(raw)
+		}
+		if err != nil || len(data) == 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Isi foto (base64) tidak valid."})
+			return
+		}
+		kind, contentType, ok := sniffKind(data, in.ContentType)
+		if !ok || kind != "photo" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Foto harus JPG, PNG, atau WEBP."})
+			return
+		}
+		if len(data) > maxPhotoBytes {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Ukuran foto maks 2 MB."})
+			return
+		}
+		vendorID, productID := r.PathValue("id"), r.PathValue("productId")
+		res, err := db.ExecContext(r.Context(), `
+			UPDATE vendor_products
+			SET photo_filename = $1, photo_content_type = $2, photo_data = $3, updated_at = now()
+			WHERE id = $4 AND vendor_id = $5
+		`, filename, contentType, data, productID, vendorID)
+		if err != nil {
+			log.Println(err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan foto."})
+			return
+		}
+		n, _ := res.RowsAffected()
+		if n == 0 {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "Produk tidak ditemukan."})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"hasPhoto": true, "filename": filename, "contentType": contentType, "byteSize": len(data)})
+	}
+}
+
+func getVendorProductPhoto(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var contentType string
+		var data []byte
+		err := db.QueryRowContext(r.Context(), `
+			SELECT photo_content_type, photo_data FROM vendor_products
+			WHERE id = $1 AND vendor_id = $2 AND photo_data IS NOT NULL
+		`, r.PathValue("productId"), r.PathValue("id")).Scan(&contentType, &data)
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "Foto tidak ada."})
+			return
+		}
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal memuat foto."})
+			return
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "private, max-age=300")
+		w.Write(data)
 	}
 }
 
@@ -265,9 +477,9 @@ func postVendorProductsBulk(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			if _, err := db.ExecContext(r.Context(), `
-				INSERT INTO vendor_products (id, vendor_id, name, brand, part_number, spec)
-				VALUES ($1, $2, $3, $4, $5, $6)
-			`, id, vendorID, in.Name, in.Brand, in.PartNumber, in.Spec); err != nil {
+				INSERT INTO vendor_products (id, vendor_id, name, brand, part_number, spec, uom)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)
+			`, id, vendorID, in.Name, in.Brand, in.PartNumber, in.Spec, in.UOM); err != nil {
 				log.Println(err)
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan produk."})
 				return

@@ -91,6 +91,8 @@ func main() {
 	mux.HandleFunc("DELETE /api/vendors/{id}/products/{productId}", guard(db, vendorSelf, deleteVendorProduct(db)))
 	mux.HandleFunc("POST /api/vendors/{id}/products/{productId}/link", guard(db, vendorSelf, linkVendorProduct(db)))
 	mux.HandleFunc("POST /api/vendors/{id}/products/{productId}/unlink", guard(db, vendorSelf, unlinkVendorProduct(db)))
+	mux.HandleFunc("POST /api/vendors/{id}/products/{productId}/photo", guard(db, vendorSelf, postVendorProductPhoto(db)))
+	mux.HandleFunc("GET /api/vendors/{id}/products/{productId}/photo", guard(db, vendorSelf, getVendorProductPhoto(db)))
 	mux.HandleFunc("POST /api/vendors/{id}/sku-proposals/{skuId}/attachments", guard(db, vendorSelf, postSkuAttachment(db)))
 	mux.HandleFunc("GET /api/vendors/{id}/sku-proposals/{skuId}/attachments", guard(db, selfOrStaff, listSkuAttachments(db)))
 	mux.HandleFunc("DELETE /api/vendors/{id}/sku-proposals/{skuId}/attachments/{attId}", guard(db, vendorSelf, deleteSkuAttachment(db)))

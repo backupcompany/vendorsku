@@ -720,6 +720,18 @@ const vendorProductSchema = z.object({
   brand: z.string(),
   partNumber: z.string(),
   spec: z.string(),
+  uom: z.string().default(''),
+  izinEdar: z.string().default(''),
+  izinEdarUntil: z.string().nullish(),
+  lkppPrice: z.number().nullish(),
+  lkppUrl: z.string().default(''),
+  priceList: z.number().default(0),
+  discountPct: z.number().default(0),
+  nettPrice: z.number().default(0),
+  moq: z.number().default(1),
+  leadTimeDays: z.number().default(7),
+  priceValidUntil: z.string().nullish(),
+  hasPhoto: z.boolean().default(false),
   skuId: z.string().nullish(),
   linkedSku: z
     .object({
@@ -735,6 +747,23 @@ const vendorProductSchema = z.object({
   updatedAt: z.string(),
 });
 export type VendorProduct = z.infer<typeof vendorProductSchema>;
+
+export type VendorProductBody = {
+  name: string;
+  brand?: string;
+  partNumber?: string;
+  spec?: string;
+  uom?: string;
+  izinEdar?: string;
+  izinEdarUntil?: string;
+  lkppPrice?: number;
+  lkppUrl?: string;
+  priceList?: number;
+  discountPct?: number;
+  moq?: number;
+  leadTimeDays?: number;
+  priceValidUntil?: string;
+};
 
 const productSuggestHitSchema = z.object({
   id: z.string(),
@@ -762,10 +791,7 @@ export async function fetchVendorProducts(vendorId: string): Promise<VendorProdu
   }
 }
 
-export async function createVendorProduct(
-  vendorId: string,
-  body: { name: string; brand?: string; partNumber?: string; spec?: string },
-): Promise<VendorProduct> {
+export async function createVendorProduct(vendorId: string, body: VendorProductBody): Promise<VendorProduct> {
   try {
     const { data } = await http.post(`/api/vendors/${encodeURIComponent(vendorId)}/products`, body);
     return vendorProductSchema.parse(data);
@@ -773,6 +799,47 @@ export async function createVendorProduct(
     if (err instanceof z.ZodError) throw new Error('Bentuk produk tidak sesuai.');
     throw apiError(err, 'Gagal menyimpan produk.');
   }
+}
+
+export async function patchVendorProduct(
+  vendorId: string,
+  productId: string,
+  body: VendorProductBody,
+): Promise<VendorProduct> {
+  try {
+    const { data } = await http.patch(
+      `/api/vendors/${encodeURIComponent(vendorId)}/products/${encodeURIComponent(productId)}`,
+      body,
+    );
+    return vendorProductSchema.parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk produk tidak sesuai.');
+    throw apiError(err, 'Gagal mengubah produk.');
+  }
+}
+
+export async function uploadVendorProductPhoto(
+  vendorId: string,
+  productId: string,
+  file: File,
+): Promise<void> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+  try {
+    await http.post(`/api/vendors/${encodeURIComponent(vendorId)}/products/${encodeURIComponent(productId)}/photo`, {
+      filename: file.name,
+      contentType: file.type,
+      dataBase64: btoa(binary),
+    });
+  } catch (err) {
+    throw apiError(err, 'Gagal mengunggah foto.');
+  }
+}
+
+export function vendorProductPhotoUrl(vendorId: string, productId: string): string {
+  return `/api/vendors/${encodeURIComponent(vendorId)}/products/${encodeURIComponent(productId)}/photo`;
 }
 
 export async function deleteVendorProduct(vendorId: string, productId: string): Promise<void> {

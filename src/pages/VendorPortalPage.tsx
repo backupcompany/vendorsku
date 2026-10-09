@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { vendorService } from '../modules/vendor/services/vendorService';
 import { useVendorProfile } from '../modules/vendor/hooks/useVendorProfile';
 import { useVendorCatalog } from '../modules/vendor/hooks/useVendorCatalog';
@@ -7,18 +7,18 @@ import { Header } from '../core/ui/Header';
 import { VendorPriceModal } from '../modules/vendor/components/VendorPriceModal';
 import { VendorSubmissionList } from '../modules/vendor/components/VendorSubmissionList';
 import { AiSkuMatcherModal } from '../modules/vendor/components/AiSkuMatcherModal';
-import { VendorSpreadsheetGrid } from '../modules/vendor/components/VendorSpreadsheetGrid';
 import { VendorCoverProfileTab } from '../modules/vendor/components/VendorCoverProfileTab';
 import { VendorCommercialTermsTab } from '../modules/vendor/components/VendorCommercialTermsTab';
 import { VendorScopeOnboardingModal } from '../modules/vendor/components/VendorScopeOnboardingModal';
 import { VendorQuickGuideModal } from '../modules/vendor/components/VendorQuickGuideModal';
 import { VendorChangePasswordModal } from '../modules/vendor/components/VendorChangePasswordModal';
 import { VendorProductsPanel } from '../modules/vendor/components/VendorProductsPanel';
-import { TableProperties, ClipboardList, Building, ShieldCheck, Package } from 'lucide-react';
+import { ClipboardList, Building, ShieldCheck, Package } from 'lucide-react';
 import { useUrlTab } from '../core/router/useAppRouter';
 import type { VendorProduct } from '../core/api/catalog';
 
-const PORTAL_TABS = ['cover', 'terms', 'products', 'pricing', 'submissions'] as const;
+/** Merchant-first: master SKU matrix is not a primary tab (legacy ?tab=pricing → products). */
+const PORTAL_TABS = ['cover', 'terms', 'products', 'submissions', 'pricing'] as const;
 
 interface VendorPortalPageProps {
   onLogoutOrChangeCompany?: () => void;
@@ -63,8 +63,13 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
     catalog.remove(id);
   };
 
-  // Sub-tabs: 'cover' (Profil Perusahaan & PIC) | 'terms' (Lini Bisnis & Ketentuan Distribusi) | 'pricing' (Daftar SKU & Penawaran Harga) | 'submissions' (Daftar Penawaran Tersimpan)
+  // Sub-tabs: cover | terms | products (merchant hub) | submissions. pricing kept only for legacy URL redirect.
   const [activeSubTab, setActiveSubTab] = useUrlTab('tab', PORTAL_TABS);
+  useEffect(() => {
+    if (activeSubTab === 'pricing' || (activeSubTab as string) === 'matrix') {
+      setActiveSubTab('products');
+    }
+  }, [activeSubTab, setActiveSubTab]);
   const [selectedSkuForPrice, setSelectedSkuForPrice] = useState<MasterSku | null>(null);
   const [selectedExistingSubmission, setSelectedExistingSubmission] = useState<VendorPriceSubmission | null>(null);
   const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
@@ -154,16 +159,19 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
             vendorBrand: product.brand || '',
             vendorPartNumber: product.partNumber || '',
             fullFormattedSkuName: '',
-            priceListExcludeVat: 0,
-            discountPercent: 0,
-            nettPriceExcludeVat: 0,
-            unitPrice: 0,
+            priceListExcludeVat: product.priceList || 0,
+            discountPercent: product.discountPct || 0,
+            nettPriceExcludeVat: product.nettPrice || 0,
+            unitPrice: product.nettPrice || 0,
             taxPercent: 11,
             priceWithTax: 0,
-            uom: sku.uom,
-            moq: 1,
-            leadTimeDays: 7,
-            priceValidUntil: '2026-12-31',
+            uom: product.uom || sku.uom,
+            moq: product.moq || 1,
+            leadTimeDays: product.leadTimeDays || 7,
+            priceValidUntil: product.priceValidUntil || '2026-12-31',
+            linkLkppPrice: product.lkppUrl || undefined,
+            lkppPrice: product.lkppPrice || undefined,
+            kemenkesLicense: product.izinEdar || undefined,
             status: 'submitted',
             pairingStatus: 'vendor_confirmed',
             submittedAt: new Date().toISOString(),
@@ -229,7 +237,6 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
             {tabBtn('cover', 'Profil Perusahaan & PIC', <Building className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400 shrink-0" />)}
             {tabBtn('terms', 'Lini Bisnis & Ketentuan Distribusi', <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />)}
             {tabBtn('products', 'Produk Saya', <Package className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400 shrink-0" />)}
-            {tabBtn('pricing', 'Daftar SKU & Penawaran Harga', <TableProperties className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400 shrink-0" />)}
             {tabBtn('submissions', 'Penawaran Tersimpan', <ClipboardList className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400 shrink-0" />)}
           </div>
           <div className="flex items-center gap-2 pb-1.5 shrink-0">
@@ -249,9 +256,9 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
         <VendorCoverProfileTab
           vendor={currentVendor}
           onUpdateProfile={updateVendorProfile}
-          onNavigateToPricing={() => setActiveSubTab('pricing')}
+          onNavigateToPricing={() => setActiveSubTab('products')}
           onNavigateToTerms={() => setActiveSubTab('terms')}
-          onNavigateToMatrix={() => setActiveSubTab('pricing')}
+          onNavigateToMatrix={() => setActiveSubTab('products')}
           onOpenQuickGuide={() => setIsQuickGuideOpen(true)}
           onOpenChangePassword={() => setIsChangePasswordOpen(true)}
         />
@@ -262,7 +269,7 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
           vendor={currentVendor}
           onUpdateTerms={handleUpdateTerms}
           onUpdateScope={(_id, scope) => handleSaveScope(scope)}
-          onNavigateToPricing={() => setActiveSubTab('pricing')}
+          onNavigateToPricing={() => setActiveSubTab('products')}
           onOpenQuickGuide={() => setIsQuickGuideOpen(true)}
         />
       )}
@@ -270,28 +277,11 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
       {activeSubTab === 'products' && (
         <VendorProductsPanel
           vendor={currentVendor}
-          onLinked={(sku, product) => openPriceFromProduct(sku, product)}
+          onLinked={(sku, product) => {
+            // Price already synced server-side when product has priceList; modal only if still empty.
+            if (!product.priceList) openPriceFromProduct(sku, product);
+          }}
           onPrice={(sku, product) => openPriceFromProduct(sku, product)}
-        />
-      )}
-
-      {(activeSubTab === 'pricing' || (activeSubTab as string) === 'matrix') && (
-        <VendorSpreadsheetGrid
-          masterSkus={activeAllSkus}
-          allMasterSkus={activeAllSkus}
-          vendor={currentVendor}
-          initialSubmissions={submissions}
-          onSaveBatch={bulkSave}
-          onOpenAiMatcher={() => setIsAiMatcherOpen(true)}
-          onOpenScopeModal={() => setIsScopeModalOpen(true)}
-          onOpenQuickGuide={() => setIsQuickGuideOpen(true)}
-          bypassScopeFilter={bypassScopeFilter}
-          onToggleBypassScope={() => setBypassScopeFilter((prev) => !prev)}
-          activeSubTab={activeSubTab}
-          onChangeSubTab={(tab) => setActiveSubTab(tab as any)}
-          totalSubmissionsCount={submissions.length}
-          totalAllSkusCount={activeAllSkus.length}
-          hideNavTabs
         />
       )}
 

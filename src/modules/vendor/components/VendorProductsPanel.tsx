@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Banknote, Link2, Link2Off, ListFilter, Loader2, Package, Plus, Send, Trash2 } from 'lucide-react';
 import {
   createVendorProduct,
@@ -11,11 +11,16 @@ import {
   proposeSku,
   suggestProductSkus,
   unlinkVendorProduct,
+  uploadVendorProductPhoto,
   type ProductMatchPreview,
   type ProductSuggestHit,
   type VendorProduct,
+  type VendorProductBody,
 } from '../../../core/api/catalog';
 import type { MasterSku, VendorProfile } from '../../../core/types';
+
+const fieldCls =
+  'w-full border border-[#a19f9d] bg-white px-2.5 py-1.5 text-sm focus:border-[#1B3F9B] focus:outline-none focus:ring-1 focus:ring-[#1B3F9B] dark:border-slate-600 dark:bg-slate-950 dark:text-white';
 
 type Props = {
   vendor: VendorProfile;
@@ -50,6 +55,17 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
   const [brand, setBrand] = useState('');
   const [partNumber, setPartNumber] = useState('');
   const [spec, setSpec] = useState('');
+  const [uom, setUom] = useState('');
+  const [izinEdar, setIzinEdar] = useState('');
+  const [izinEdarUntil, setIzinEdarUntil] = useState('');
+  const [lkppPrice, setLkppPrice] = useState('');
+  const [lkppUrl, setLkppUrl] = useState('');
+  const [priceList, setPriceList] = useState('');
+  const [discountPct, setDiscountPct] = useState('0');
+  const [moq, setMoq] = useState('1');
+  const [leadTimeDays, setLeadTimeDays] = useState('7');
+  const [priceValidUntil, setPriceValidUntil] = useState('2026-12-31');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [bulkText, setBulkText] = useState('');
   const [saving, setSaving] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -63,6 +79,46 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
   const [pickedHit, setPickedHit] = useState<ProductSuggestHit | null>(null);
 
   const level1 = vendor.businessScope?.level1?.trim() || '';
+  const priceListN = Number(priceList) || 0;
+  const discountN = Math.min(100, Math.max(0, Number(discountPct) || 0));
+  const nettPreview = priceListN > 0 ? Math.round(priceListN * (1 - discountN / 100)) : 0;
+
+  const formBody = (): VendorProductBody => ({
+    name: name.trim(),
+    brand: brand.trim(),
+    partNumber: partNumber.trim(),
+    spec: spec.trim(),
+    uom: uom.trim(),
+    izinEdar: izinEdar.trim(),
+    izinEdarUntil: izinEdarUntil || undefined,
+    lkppPrice: Number(lkppPrice) || undefined,
+    lkppUrl: lkppUrl.trim() || undefined,
+    priceList: priceListN,
+    discountPct: discountN,
+    moq: Number(moq) || 1,
+    leadTimeDays: Number(leadTimeDays) || 7,
+    priceValidUntil: priceValidUntil || undefined,
+  });
+
+  const clearForm = () => {
+    setName('');
+    setBrand('');
+    setPartNumber('');
+    setSpec('');
+    setUom('');
+    setIzinEdar('');
+    setIzinEdarUntil('');
+    setLkppPrice('');
+    setLkppUrl('');
+    setPriceList('');
+    setDiscountPct('0');
+    setMoq('1');
+    setLeadTimeDays('7');
+    setPriceValidUntil('2026-12-31');
+    setPhotoFile(null);
+    setHits([]);
+    setPickedHit(null);
+  };
 
   const reload = async () => {
     setLoading(true);
@@ -145,20 +201,15 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
     setError('');
     setOkMsg('');
     try {
-      const created = await createVendorProduct(vendor.id, {
-        name: name.trim(),
-        brand: brand.trim(),
-        partNumber: partNumber.trim(),
-        spec: spec.trim(),
-      });
+      const created = await createVendorProduct(vendor.id, formBody());
+      if (photoFile) {
+        await uploadVendorProductPhoto(vendor.id, created.id, photoFile);
+        created.hasPhoto = true;
+      }
       setProducts((prev) => [created, ...prev]);
       setActiveId(created.id);
-      setName('');
-      setBrand('');
-      setPartNumber('');
-      setSpec('');
-      setHits([]);
-      setPickedHit(null);
+      clearForm();
+      setOkMsg('Produk disimpan.');
     } catch (err: any) {
       setError(err.message || 'Gagal menyimpan produk.');
     } finally {
@@ -172,6 +223,7 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
     setBrand((hit.brand || '').trim());
     setPartNumber((hit.partNumber || '').trim());
     setSpec(hit.generalSpec || '');
+    setUom(hit.uom || '');
     setPickedHit(hit);
   };
 
@@ -205,11 +257,14 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
       let product = products.find((p) => p.id === activeId && !p.skuId);
       if (!product) {
         product = await createVendorProduct(vendor.id, {
+          ...formBody(),
           name: name.trim() || hit.commodityName,
-          brand: brand.trim(),
-          partNumber: partNumber.trim(),
-          spec: spec.trim(),
+          uom: uom.trim() || hit.uom,
         });
+        if (photoFile) {
+          await uploadVendorProductPhoto(vendor.id, product.id, photoFile);
+          product = { ...product, hasPhoto: true };
+        }
         setProducts((prev) => [product!, ...prev]);
       }
       const linked = await linkVendorProduct(vendor.id, product.id, hit.id);
@@ -218,12 +273,12 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
         return [linked, ...without];
       });
       setActiveId(linked.id);
-      setName('');
-      setBrand('');
-      setPartNumber('');
-      setSpec('');
-      setHits([]);
-      setPickedHit(null);
+      clearForm();
+      setOkMsg(
+        linked.priceList > 0
+          ? `Taut ke ${hit.erpCode} — harga ikut tersimpan ke penawaran.`
+          : `Taut ke ${hit.erpCode}.`,
+      );
       onLinked(toSku(hit), linked);
     } catch (err: any) {
       setError(err.message || 'Gagal memasangkan SKU.');
@@ -318,32 +373,56 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
 
   const unmatched = products.filter((p) => !p.skuId);
   const linkedCount = products.length - unmatched.length;
+  const pricedCount = products.filter((p) => (p.priceList || 0) > 0).length;
   const focus = products.find((p) => p.id === activeId) || unmatched[0] || null;
   const highCount = preview?.filter((r) => r.hasMatch && r.top && r.top.score >= minScore).length ?? 0;
   const topByProduct = new Map(
     (preview || []).filter((r) => r.hasMatch && r.top).map((r) => [r.productId, r.top!]),
   );
+  const storeCreds = useMemo(
+    () => ({
+      company: vendor.companyName,
+      validUntil: vendor.commercialTerms?.priceValidUntil || '—',
+      coverage:
+        vendor.commercialTerms?.coverageType === 'all_units'
+          ? 'Semua unit RS'
+          : `${vendor.commercialTerms?.coveredHospitalUnits?.length || 0} unit terpilih`,
+    }),
+    [vendor],
+  );
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-4 pb-16">
-      <div className="border border-[#edebe9] bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-xl font-semibold text-[#0B2361] dark:text-white border-l-4 border-[#1B3F9B] pl-3">
-              Produk Saya
-            </h2>
-            <p className="mt-1 pl-4 text-sm text-slate-600 dark:text-slate-400">
-              Ketik nama produk → pilih saran SKU RS (isi form otomatis, tetap bisa diedit) → simpan / tautkan.
-            </p>
+      <div className="border border-[#edebe9] bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div className="px-4 sm:px-6 py-3 border-b border-[#edebe9] dark:border-slate-800 bg-[#faf9f8] dark:bg-slate-950/40">
+          <div className="text-xs font-semibold text-[#0B2361] dark:text-blue-200">{storeCreds.company}</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">
+            Masa berlaku harga: {storeCreds.validUntil} · Cakupan: {storeCreds.coverage}
           </div>
-          <div className="flex gap-2 text-[10px] font-semibold shrink-0">
-            <span className="rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-900">
+          <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-semibold">
+            <span className="border border-slate-300 bg-white px-2 py-0.5 dark:border-slate-700 dark:bg-slate-900">
+              {products.length} produk
+            </span>
+            <span className="border border-emerald-300 bg-emerald-50 text-emerald-800 px-2 py-0.5 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+              {linkedCount} terhubung ERP
+            </span>
+            <span className="border border-amber-300 bg-amber-50 text-amber-800 px-2 py-0.5 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
               {unmatched.length} belum match
             </span>
-            <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-900">
-              {linkedCount} terhubung
+            <span className="border border-blue-300 bg-blue-50 text-blue-800 px-2 py-0.5 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
+              {pricedCount} ada harga
             </span>
           </div>
+        </div>
+
+        <div className="p-4 sm:p-6">
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold text-[#0B2361] dark:text-white border-l-4 border-[#1B3F9B] pl-3">
+            Produk Saya
+          </h2>
+          <p className="mt-1 pl-4 text-sm text-slate-600 dark:text-slate-400">
+            Ketik nama → pilih saran SKU RS (isi form otomatis, tetap bisa diedit) → isi harga → simpan / tautkan.
+          </p>
         </div>
 
         <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -358,7 +437,7 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
                 if (pickedHit) setPickedHit(null);
               }}
               placeholder="Contoh: Onemed Kassa Hidrofil 40x80"
-              className="w-full border border-[#a19f9d] bg-white px-2.5 py-1.5 text-sm focus:border-[#1B3F9B] focus:outline-none focus:ring-1 focus:ring-[#1B3F9B] dark:border-slate-600 dark:bg-slate-950 dark:text-white"
+              className={fieldCls}
               required
               maxLength={200}
               autoComplete="off"
@@ -385,7 +464,7 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
                           <div className="font-semibold text-slate-800 dark:text-slate-100 truncate">
                             {hit.commodityName}
                             {selected && (
-                              <span className="ml-2 text-[10px] font-bold text-[#1B3F9B]">dipilih</span>
+                              <span className="ml-2 text-[10px] font-bold text-[#1B3F9B]">dipilih · skor {hit.score}</span>
                             )}
                           </div>
                           <div className="text-[10px] text-slate-500 truncate">
@@ -397,11 +476,6 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
                     );
                   })}
                 </ul>
-                {!suggesting && hits.length === 0 && (
-                  <p className="px-2.5 py-2 text-[11px] text-slate-500">
-                    Tidak ada saran. Isi field di bawah lalu simpan, atau ajukan sebagai SKU baru.
-                  </p>
-                )}
               </div>
             )}
             {pickedHit && (
@@ -413,30 +487,122 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
           </div>
           <div>
             <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Brand / Merk</label>
-            <input
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              className="w-full border border-[#a19f9d] bg-white px-2.5 py-1.5 text-sm focus:border-[#1B3F9B] focus:outline-none focus:ring-1 focus:ring-[#1B3F9B] dark:border-slate-600 dark:bg-slate-950 dark:text-white"
-              maxLength={80}
-            />
+            <input value={brand} onChange={(e) => setBrand(e.target.value)} className={fieldCls} maxLength={80} />
           </div>
           <div>
             <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Part / REF</label>
-            <input
-              value={partNumber}
-              onChange={(e) => setPartNumber(e.target.value)}
-              className="w-full border border-[#a19f9d] bg-white px-2.5 py-1.5 text-sm focus:border-[#1B3F9B] focus:outline-none focus:ring-1 focus:ring-[#1B3F9B] dark:border-slate-600 dark:bg-slate-950 dark:text-white"
-              maxLength={80}
-            />
+            <input value={partNumber} onChange={(e) => setPartNumber(e.target.value)} className={fieldCls} maxLength={80} />
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Spesifikasi singkat</label>
+            <input value={spec} onChange={(e) => setSpec(e.target.value)} className={fieldCls} maxLength={500} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">
+              Satuan jual (UOM){pickedHit ? ' · dari SKU RS' : ''}
+            </label>
             <input
-              value={spec}
-              onChange={(e) => setSpec(e.target.value)}
-              className="w-full border border-[#a19f9d] bg-white px-2.5 py-1.5 text-sm focus:border-[#1B3F9B] focus:outline-none focus:ring-1 focus:ring-[#1B3F9B] dark:border-slate-600 dark:bg-slate-950 dark:text-white"
-              maxLength={500}
+              value={uom}
+              onChange={(e) => setUom(e.target.value)}
+              placeholder="Pcs / Box / Pack"
+              className={fieldCls}
+              maxLength={40}
             />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Foto produk</label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+              className="block w-full text-xs text-slate-600 file:mr-2 file:border file:border-[#a19f9d] file:bg-white file:px-2 file:py-1"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">No. Izin Edar (AKL/AKD)</label>
+            <input value={izinEdar} onChange={(e) => setIzinEdar(e.target.value)} className={fieldCls} maxLength={80} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Masa berlaku izin</label>
+            <input type="date" value={izinEdarUntil} onChange={(e) => setIzinEdarUntil(e.target.value)} className={fieldCls} />
+          </div>
+
+          <div className="sm:col-span-2 mt-1 border border-[#edebe9] dark:border-slate-700 p-3 space-y-3">
+            <div className="text-xs font-bold uppercase tracking-wide text-[#1B3F9B]">Harga penawaran</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Price list (excl. PPN)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={priceList}
+                  onChange={(e) => setPriceList(e.target.value)}
+                  className={fieldCls}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Diskon %</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  value={discountPct}
+                  onChange={(e) => setDiscountPct(e.target.value)}
+                  className={fieldCls}
+                />
+              </div>
+              <div className="sm:col-span-2 text-xs text-slate-600 dark:text-slate-300">
+                Nett excl. PPN:{' '}
+                <span className="font-semibold text-[#0B2361] dark:text-white">
+                  {nettPreview.toLocaleString('id-ID')}
+                </span>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">MOQ</label>
+                <input type="number" min={1} value={moq} onChange={(e) => setMoq(e.target.value)} className={fieldCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Lead time (hari)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={leadTimeDays}
+                  onChange={(e) => setLeadTimeDays(e.target.value)}
+                  className={fieldCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Harga berlaku s/d</label>
+                <input
+                  type="date"
+                  value={priceValidUntil}
+                  onChange={(e) => setPriceValidUntil(e.target.value)}
+                  className={fieldCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Harga e-Katalog / LKPP</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={lkppPrice}
+                  onChange={(e) => setLkppPrice(e.target.value)}
+                  className={fieldCls}
+                  placeholder="opsional"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">URL LKPP</label>
+                <input
+                  value={lkppUrl}
+                  onChange={(e) => setLkppUrl(e.target.value)}
+                  className={fieldCls}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
           </div>
 
           <div className="sm:col-span-2 flex flex-wrap gap-2">
@@ -493,6 +659,7 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
             {okMsg}
           </p>
         )}
+        </div>
       </div>
 
       {unmatched.length > 0 && (
@@ -631,24 +798,42 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
                   onClick={() => setActiveId(p.id)}
                   className="text-left min-w-0 flex-1 cursor-pointer"
                 >
-                  <div className="font-semibold text-slate-800 dark:text-slate-100 truncate">{p.name}</div>
-                  <div className="text-[10px] text-slate-500 truncate">
-                    {[p.brand, p.partNumber].filter(Boolean).join(' · ') || '—'}
+                  <div className="flex items-start gap-2">
+                    <div
+                      className={`h-10 w-10 shrink-0 border text-[9px] flex items-center justify-center ${
+                        p.hasPhoto
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+                          : 'border-dashed border-slate-300 text-slate-400 dark:border-slate-700'
+                      }`}
+                      title={p.hasPhoto ? 'Ada foto' : 'Tanpa foto'}
+                    >
+                      {p.hasPhoto ? 'Foto' : '—'}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-slate-800 dark:text-slate-100 truncate">{p.name}</div>
+                      <div className="text-[10px] text-slate-500 truncate">
+                        {[p.brand, p.partNumber, p.uom].filter(Boolean).join(' · ') || '—'}
+                        {(p.priceList || 0) > 0
+                          ? ` · nett ${Number(p.nettPrice || 0).toLocaleString('id-ID')}`
+                          : ' · belum ada harga'}
+                        {p.izinEdar ? ` · ${p.izinEdar}` : ''}
+                      </div>
+                      {p.linkedSku ? (
+                        <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                          <Link2 className="h-3 w-3" />
+                          {p.linkedSku.erpCode} · {p.linkedSku.commodityName}
+                        </div>
+                      ) : topByProduct.get(p.id) ? (
+                        <div className="mt-1 text-[10px] text-blue-700 dark:text-blue-300 truncate">
+                          Saran: {topByProduct.get(p.id)!.commodityName} · skor {topByProduct.get(p.id)!.score}
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                          Belum dipasangkan
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {p.linkedSku ? (
-                    <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                      <Link2 className="h-3 w-3" />
-                      {p.linkedSku.erpCode} · {p.linkedSku.commodityName}
-                    </div>
-                  ) : topByProduct.get(p.id) ? (
-                    <div className="mt-1 text-[10px] text-blue-700 dark:text-blue-300 truncate">
-                      Saran: {topByProduct.get(p.id)!.commodityName} · skor {topByProduct.get(p.id)!.score}
-                    </div>
-                  ) : (
-                    <div className="mt-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                      Belum dipasangkan
-                    </div>
-                  )}
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
                   {p.linkedSku && (

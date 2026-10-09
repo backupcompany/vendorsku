@@ -222,3 +222,89 @@ func TestProductCRUDAndLink(t *testing.T) {
 		t.Fatalf("preview body %s", prec.Body.String())
 	}
 }
+
+func TestProductMerchantOfferSyncOnLink(t *testing.T) {
+	db := openTestDB(t)
+	const vendorID = "vp-merchant-v"
+	if _, err := db.Exec(`
+		INSERT INTO vendors (id, company_name, npwp, status, pic) VALUES
+		($1, 'Merchant Co', '88.888.888.8-888.888', 'verified', '{"name":"PIC","email":"merch@test.local","phone":"+6281222222222"}')
+		ON CONFLICT (id) DO NOTHING
+	`, vendorID); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = db.Exec(`DELETE FROM vendor_prices WHERE vendor_id = $1`, vendorID)
+	_, _ = db.Exec(`DELETE FROM vendor_products WHERE vendor_id = $1`, vendorID)
+	if _, err := db.Exec(`
+		INSERT INTO master_skus (
+			id, erp_code, commodity_name, general_spec, level1, level2, level3, level4,
+			uom, is_open_for_vendor, is_active, status, created_at, updated_at
+		) VALUES
+		('sku-merch-1', 'ERP-M1', 'KASSA MERCHANT', '40x80', 'GENERAL SUPPLIES', 'CONSUMABLES', 'DRESSING', 'KASSA',
+			'Box', true, true, 'active', now(), now())
+		ON CONFLICT (id) DO UPDATE SET is_open_for_vendor = true, is_active = true, status = 'active', uom = 'Box'
+	`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = db.Exec(`DELETE FROM vendor_prices WHERE vendor_id = $1`, vendorID)
+		_, _ = db.Exec(`DELETE FROM vendor_products WHERE vendor_id = $1`, vendorID)
+		_, _ = db.Exec(`DELETE FROM master_skus WHERE id = 'sku-merch-1'`)
+		_, _ = db.Exec(`DELETE FROM sessions WHERE actor_id = $1`, vendorID)
+		_, _ = db.Exec(`DELETE FROM vendors WHERE id = $1`, vendorID)
+	})
+
+	token, err := issueSession(t.Context(), db, "vendor", vendorID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/vendors/{id}/products", guard(db, vendorSelf, postVendorProduct(db)))
+	mux.HandleFunc("POST /api/vendors/{id}/products/{productId}/link", guard(db, vendorSelf, linkVendorProduct(db)))
+
+	body := `{"name":"Onemed Kassa","brand":"Onemed","uom":"","priceList":100000,"discountPct":10,"moq":2,"leadTimeDays":5,"izinEdar":"AKL-123","lkppUrl":"https://lkpp.example/item"}`
+	create := httptest.NewRequest("POST", "/api/vendors/"+vendorID+"/products", strings.NewReader(body))
+	create.Header.Set("Content-Type", "application/json")
+	create.Header.Set(realmHeader, "vendor")
+	create.AddCookie(&http.Cookie{Name: sessionCookieName("vendor"), Value: token})
+	crec := httptest.NewRecorder()
+	mux.ServeHTTP(crec, create)
+	if crec.Code != http.StatusOK {
+		t.Fatalf("create %d %s", crec.Code, crec.Body.String())
+	}
+	var created struct {
+		ID         string  `json:"id"`
+		PriceList  int64   `json:"priceList"`
+		NettPrice  int64   `json:"nettPrice"`
+		IzinEdar   string  `json:"izinEdar"`
+		DiscountPct float64 `json:"discountPct"`
+	}
+	if err := json.Unmarshal(crec.Body.Bytes(), &created); err != nil || created.ID == "" {
+		t.Fatalf("create body %s", crec.Body.String())
+	}
+	if created.PriceList != 100000 || created.NettPrice != 90000 || created.IzinEdar != "AKL-123" {
+		t.Fatalf("merchant fields not round-tripped: %+v", created)
+	}
+
+	link := httptest.NewRequest("POST", "/api/vendors/"+vendorID+"/products/"+created.ID+"/link", strings.NewReader(`{"skuId":"sku-merch-1"}`))
+	link.Header.Set("Content-Type", "application/json")
+	link.Header.Set(realmHeader, "vendor")
+	link.AddCookie(&http.Cookie{Name: sessionCookieName("vendor"), Value: token})
+	lrec := httptest.NewRecorder()
+	mux.ServeHTTP(lrec, link)
+	if lrec.Code != http.StatusOK {
+		t.Fatalf("link %d %s", lrec.Code, lrec.Body.String())
+	}
+	var linked struct {
+		UOM string `json:"uom"`
+	}
+	_ = json.Unmarshal(lrec.Body.Bytes(), &linked)
+	if linked.UOM != "Box" {
+		t.Fatalf("link should sync empty uom from SKU, got %q", linked.UOM)
+	}
+
+	var offers int
+	if err := db.QueryRow(`SELECT count(*) FROM vendor_prices WHERE vendor_id = $1 AND sku_id = 'sku-merch-1'`, vendorID).Scan(&offers); err != nil || offers != 1 {
+		t.Fatalf("want 1 synced offer, got %d err %v", offers, err)
+	}
+}
