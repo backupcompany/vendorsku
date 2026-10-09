@@ -25,10 +25,31 @@ func unlockSeedPasswords(t *testing.T, db *sql.DB) {
 		t.Fatal(err)
 	}
 	h := string(hash)
-	if _, err := db.Exec(`UPDATE vendors SET password_hash = $1, password_created_at = now() WHERE id = 'vnd-001'`, h); err != nil {
+	// Prod DB may have dropped demo rows; re-seed the minimal accounts tests expect.
+	if _, err := db.Exec(`
+		INSERT INTO vendors (id, company_name, npwp, status, password_hash, password_created_at, pic, business_scope)
+		VALUES (
+			'vnd-001', 'PT Medika Farma Pratama', '01.234.567.8-012.000', 'verified', $1, now(),
+			'{"name":"Hendra Gunawan","email":"tender@medikafarma.co.id","phone":"+62 21 5567 8900"}',
+			'{"level1":"DIAGNOSTIC AND MEDICAL DEVICES","level2List":["SURGICAL & DIAGNOSTIC INTERVENTION SYSTEMS"]}'
+		)
+		ON CONFLICT (id) DO UPDATE SET
+			password_hash = EXCLUDED.password_hash,
+			password_created_at = now(),
+			company_name = EXCLUDED.company_name,
+			npwp = EXCLUDED.npwp,
+			pic = EXCLUDED.pic
+	`, h); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`UPDATE admin_users SET password_hash = $1 WHERE id = 'adm-001'`, h); err != nil {
+	if _, err := db.Exec(`
+		INSERT INTO admin_users (id, username, email, name, role, role_title, department, hospital_unit, password_hash)
+		VALUES (
+			'adm-001', 'admin', 'heldra.parningotan@siloamhospitals.com', 'Heldra Parningotan',
+			'super_admin', 'Head of Procurement', 'Corporate Supply Chain', 'Head Office', $1
+		)
+		ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash
+	`, h); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -462,6 +483,7 @@ func TestSessionGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := t.Context()
+	unlockSeedPasswords(t, db)
 	vendorToken, err := issueSession(ctx, db, "vendor", "vnd-001")
 	if err != nil {
 		t.Fatal(err)

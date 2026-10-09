@@ -79,6 +79,18 @@ func main() {
 	mux.HandleFunc("POST /api/vendors/{id}/sku-proposals", guard(db, vendorSelf, postSkuProposal(db)))
 	mux.HandleFunc("POST /api/vendors/{id}/sku-proposals/bulk", guard(db, vendorSelf, postSkuProposalsBulk(db)))
 	mux.HandleFunc("GET /api/vendors/{id}/sku-proposals", guard(db, selfOrStaff, listVendorSkuProposals(db)))
+
+	// Merchant catalog (P0): vendor products + SQL text suggest (no AI).
+	mux.HandleFunc("GET /api/vendors/{id}/products/suggest", guard(db, vendorSelf, productSuggest(db)))
+	mux.HandleFunc("GET /api/vendors/{id}/products/match-preview", guard(db, vendorSelf, productMatchPreview(db)))
+	mux.HandleFunc("GET /api/vendors/{id}/products", guard(db, vendorSelf, listVendorProducts(db)))
+	mux.HandleFunc("POST /api/vendors/{id}/products", guard(db, vendorSelf, postVendorProduct(db)))
+	mux.HandleFunc("POST /api/vendors/{id}/products/bulk", guard(db, vendorSelf, postVendorProductsBulk(db)))
+	mux.HandleFunc("POST /api/vendors/{id}/products/link-batch", guard(db, vendorSelf, linkVendorProductsBatch(db)))
+	mux.HandleFunc("PATCH /api/vendors/{id}/products/{productId}", guard(db, vendorSelf, patchVendorProduct(db)))
+	mux.HandleFunc("DELETE /api/vendors/{id}/products/{productId}", guard(db, vendorSelf, deleteVendorProduct(db)))
+	mux.HandleFunc("POST /api/vendors/{id}/products/{productId}/link", guard(db, vendorSelf, linkVendorProduct(db)))
+	mux.HandleFunc("POST /api/vendors/{id}/products/{productId}/unlink", guard(db, vendorSelf, unlinkVendorProduct(db)))
 	mux.HandleFunc("POST /api/vendors/{id}/sku-proposals/{skuId}/attachments", guard(db, vendorSelf, postSkuAttachment(db)))
 	mux.HandleFunc("GET /api/vendors/{id}/sku-proposals/{skuId}/attachments", guard(db, selfOrStaff, listSkuAttachments(db)))
 	mux.HandleFunc("DELETE /api/vendors/{id}/sku-proposals/{skuId}/attachments/{attId}", guard(db, vendorSelf, deleteSkuAttachment(db)))

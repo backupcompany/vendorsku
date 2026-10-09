@@ -13,10 +13,12 @@ import { VendorCommercialTermsTab } from '../modules/vendor/components/VendorCom
 import { VendorScopeOnboardingModal } from '../modules/vendor/components/VendorScopeOnboardingModal';
 import { VendorQuickGuideModal } from '../modules/vendor/components/VendorQuickGuideModal';
 import { VendorChangePasswordModal } from '../modules/vendor/components/VendorChangePasswordModal';
-import { TableProperties, ClipboardList, Building, ShieldCheck } from 'lucide-react';
+import { VendorProductsPanel } from '../modules/vendor/components/VendorProductsPanel';
+import { TableProperties, ClipboardList, Building, ShieldCheck, Package } from 'lucide-react';
 import { useUrlTab } from '../core/router/useAppRouter';
+import type { VendorProduct } from '../core/api/catalog';
 
-const PORTAL_TABS = ['cover', 'terms', 'pricing', 'submissions'] as const;
+const PORTAL_TABS = ['cover', 'terms', 'products', 'pricing', 'submissions'] as const;
 
 interface VendorPortalPageProps {
   onLogoutOrChangeCompany?: () => void;
@@ -134,6 +136,43 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
     setIsPriceModalOpen(true);
   };
 
+  const openPriceFromProduct = (sku: MasterSku, product: VendorProduct) => {
+    const existing = submissions.find((s) => s.skuId === sku.id) || null;
+    setSelectedSkuForPrice(sku);
+    setSelectedExistingSubmission(
+      existing
+        ? { ...existing, pairingStatus: existing.pairingStatus || 'vendor_confirmed' }
+        : {
+            id: '',
+            skuId: sku.id,
+            skuErpCode: sku.erpCode,
+            vendorId: currentVendor.id,
+            vendorName: currentVendor.companyName,
+            vendorEmail: currentVendor.email,
+            commodityName: sku.commodityName,
+            generalSpec: sku.generalSpec,
+            vendorBrand: product.brand || '',
+            vendorPartNumber: product.partNumber || '',
+            fullFormattedSkuName: '',
+            priceListExcludeVat: 0,
+            discountPercent: 0,
+            nettPriceExcludeVat: 0,
+            unitPrice: 0,
+            taxPercent: 11,
+            priceWithTax: 0,
+            uom: sku.uom,
+            moq: 1,
+            leadTimeDays: 7,
+            priceValidUntil: '2026-12-31',
+            status: 'submitted',
+            pairingStatus: 'vendor_confirmed',
+            submittedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+    );
+    setIsPriceModalOpen(true);
+  };
+
   const handleEditSubmission = (sub: VendorPriceSubmission) => {
     const parentSku = allSkus.find((s) => s.id === sub.skuId) || {
       id: sub.skuId,
@@ -189,6 +228,7 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
           <div className="flex items-center gap-1 -mb-px overflow-x-auto">
             {tabBtn('cover', 'Profil Perusahaan & PIC', <Building className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400 shrink-0" />)}
             {tabBtn('terms', 'Lini Bisnis & Ketentuan Distribusi', <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />)}
+            {tabBtn('products', 'Produk Saya', <Package className="h-3.5 w-3.5 text-[#1B3F9B] dark:text-blue-400 shrink-0" />)}
             {tabBtn('pricing', 'Daftar SKU & Penawaran Harga', <TableProperties className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400 shrink-0" />)}
             {tabBtn('submissions', 'Penawaran Tersimpan', <ClipboardList className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400 shrink-0" />)}
           </div>
@@ -224,6 +264,14 @@ export const VendorPortalPage: React.FC<VendorPortalPageProps> = ({
           onUpdateScope={(_id, scope) => handleSaveScope(scope)}
           onNavigateToPricing={() => setActiveSubTab('pricing')}
           onOpenQuickGuide={() => setIsQuickGuideOpen(true)}
+        />
+      )}
+
+      {activeSubTab === 'products' && (
+        <VendorProductsPanel
+          vendor={currentVendor}
+          onLinked={(sku, product) => openPriceFromProduct(sku, product)}
+          onPrice={(sku, product) => openPriceFromProduct(sku, product)}
         />
       )}
 

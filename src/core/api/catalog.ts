@@ -712,3 +712,177 @@ export async function searchStaffDiscovery(q: string): Promise<DiscoveryHit[]> {
     throw apiError(err, 'Pencarian gagal.');
   }
 }
+
+const vendorProductSchema = z.object({
+  id: z.string(),
+  vendorId: z.string(),
+  name: z.string(),
+  brand: z.string(),
+  partNumber: z.string(),
+  spec: z.string(),
+  skuId: z.string().nullish(),
+  linkedSku: z
+    .object({
+      id: z.string(),
+      erpCode: z.string(),
+      commodityName: z.string(),
+      generalSpec: z.string(),
+      level1: z.string(),
+      uom: z.string(),
+    })
+    .nullish(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type VendorProduct = z.infer<typeof vendorProductSchema>;
+
+const productSuggestHitSchema = z.object({
+  id: z.string(),
+  erpCode: z.string(),
+  commodityName: z.string(),
+  generalSpec: z.string(),
+  level1: z.string(),
+  level2: z.string(),
+  uom: z.string(),
+  brand: z.string().nullish(),
+  partNumber: z.string().nullish(),
+  rank: z.number(),
+  score: z.number(),
+});
+const productSuggestSchema = z.array(productSuggestHitSchema);
+export type ProductSuggestHit = z.infer<typeof productSuggestHitSchema>;
+
+export async function fetchVendorProducts(vendorId: string): Promise<VendorProduct[]> {
+  try {
+    const { data } = await http.get(`/api/vendors/${encodeURIComponent(vendorId)}/products`);
+    return z.array(vendorProductSchema).parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk daftar produk tidak sesuai.');
+    throw apiError(err, 'Gagal memuat produk.');
+  }
+}
+
+export async function createVendorProduct(
+  vendorId: string,
+  body: { name: string; brand?: string; partNumber?: string; spec?: string },
+): Promise<VendorProduct> {
+  try {
+    const { data } = await http.post(`/api/vendors/${encodeURIComponent(vendorId)}/products`, body);
+    return vendorProductSchema.parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk produk tidak sesuai.');
+    throw apiError(err, 'Gagal menyimpan produk.');
+  }
+}
+
+export async function deleteVendorProduct(vendorId: string, productId: string): Promise<void> {
+  try {
+    await http.delete(`/api/vendors/${encodeURIComponent(vendorId)}/products/${encodeURIComponent(productId)}`);
+  } catch (err) {
+    throw apiError(err, 'Gagal menghapus produk.');
+  }
+}
+
+export async function linkVendorProduct(
+  vendorId: string,
+  productId: string,
+  skuId: string,
+): Promise<VendorProduct> {
+  try {
+    const { data } = await http.post(
+      `/api/vendors/${encodeURIComponent(vendorId)}/products/${encodeURIComponent(productId)}/link`,
+      { skuId },
+    );
+    return vendorProductSchema.parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk produk tidak sesuai.');
+    throw apiError(err, 'Gagal memasangkan SKU.');
+  }
+}
+
+export async function unlinkVendorProduct(vendorId: string, productId: string): Promise<VendorProduct> {
+  try {
+    const { data } = await http.post(
+      `/api/vendors/${encodeURIComponent(vendorId)}/products/${encodeURIComponent(productId)}/unlink`,
+    );
+    return vendorProductSchema.parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk produk tidak sesuai.');
+    throw apiError(err, 'Gagal melepas pairing.');
+  }
+}
+
+export async function createVendorProductsBulk(
+  vendorId: string,
+  items: { name: string; brand?: string; partNumber?: string; spec?: string }[],
+): Promise<{ saved: number; ids: string[] }> {
+  try {
+    const { data } = await http.post(`/api/vendors/${encodeURIComponent(vendorId)}/products/bulk`, { items });
+    return z.object({ saved: z.number(), ids: z.array(z.string()) }).parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk respons bulk tidak sesuai.');
+    throw apiError(err, 'Gagal menyimpan produk massal.');
+  }
+}
+
+/** Data-only suggest (SQL rank). No AI. */
+export async function suggestProductSkus(
+  vendorId: string,
+  q: string,
+  opts?: { brand?: string; part?: string; level1?: string },
+): Promise<ProductSuggestHit[]> {
+  try {
+    const { data } = await http.get(`/api/vendors/${encodeURIComponent(vendorId)}/products/suggest`, {
+      params: {
+        q,
+        brand: opts?.brand || undefined,
+        part: opts?.part || undefined,
+        level1: opts?.level1 || undefined,
+      },
+    });
+    return productSuggestSchema.parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk saran SKU tidak sesuai.');
+    throw apiError(err, 'Saran SKU gagal.');
+  }
+}
+
+const matchPreviewSchema = z.array(
+  z.object({
+    productId: z.string(),
+    name: z.string(),
+    brand: z.string(),
+    partNumber: z.string(),
+    hasMatch: z.boolean(),
+    top: productSuggestHitSchema.nullish(),
+  }),
+);
+export type ProductMatchPreview = z.infer<typeof matchPreviewSchema>[number];
+
+export async function fetchProductMatchPreview(
+  vendorId: string,
+  opts?: { level1?: string },
+): Promise<ProductMatchPreview[]> {
+  try {
+    const { data } = await http.get(`/api/vendors/${encodeURIComponent(vendorId)}/products/match-preview`, {
+      params: { level1: opts?.level1 || undefined },
+    });
+    return matchPreviewSchema.parse(data);
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk pratinjau match tidak sesuai.');
+    throw apiError(err, 'Pratinjau match gagal.');
+  }
+}
+
+export async function linkVendorProductsBatch(
+  vendorId: string,
+  links: { productId: string; skuId: string }[],
+): Promise<number> {
+  try {
+    const { data } = await http.post(`/api/vendors/${encodeURIComponent(vendorId)}/products/link-batch`, { links });
+    return z.object({ linked: z.number() }).parse(data).linked;
+  } catch (err) {
+    if (err instanceof z.ZodError) throw new Error('Bentuk respons batch tidak sesuai.');
+    throw apiError(err, 'Batch pairing gagal.');
+  }
+}

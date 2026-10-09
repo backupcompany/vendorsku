@@ -55,7 +55,7 @@ interface VendorSpreadsheetGridProps {
   onOpenQuickGuide?: () => void;
   bypassScopeFilter?: boolean;
   onToggleBypassScope?: () => void;
-  activeSubTab?: 'cover' | 'terms' | 'pricing' | 'submissions' | 'matrix';
+  activeSubTab?: 'cover' | 'terms' | 'products' | 'pricing' | 'submissions' | 'matrix';
   onChangeSubTab?: (tab: 'cover' | 'terms' | 'pricing' | 'submissions') => void;
   totalSubmissionsCount?: number;
   totalAllSkusCount?: number;
