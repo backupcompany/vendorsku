@@ -49,19 +49,23 @@ func postVendor(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		byStaff := signedIn && caller.Kind == "staff"
+		ip := ""
 		if !byStaff {
-			ip := clientIP(r)
-			if wait := signInThrottle.wait("register", ip); wait > 0 {
+			ip = clientIP(r)
+			// Per-IP only — a global "register" key used to lock every visitor after 5 signups.
+			if wait := signInThrottle.wait("register:"+ip, ip); wait > 0 {
 				w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
 				writeJSON(w, http.StatusTooManyRequests, map[string]string{
 					"error": fmt.Sprintf("Terlalu banyak pendaftaran dari jaringan ini. Coba lagi dalam %d menit.", int(wait.Minutes())+1),
 				})
 				return
 			}
-			signInThrottle.fail("register", ip)
 		}
 		doc, status, msg := createVendor(r.Context(), db, byStaff, in)
 		if msg != "" {
+			if ip != "" {
+				signInThrottle.fail("register:"+ip, ip)
+			}
 			writeJSON(w, status, map[string]string{"error": msg})
 			return
 		}
@@ -99,6 +103,7 @@ func postSignInAs(db *sql.DB, kind string, signIn signInFn) http.HandlerFunc {
 			return
 		}
 		_, actorID, status, msg := signIn(r.Context(), db, in.Identifier, in.Password)
+		// Only count wrong secrets — 403 (no password / common password) is not a guess.
 		if status == http.StatusUnauthorized {
 			signInThrottle.fail(account, ip)
 		}
@@ -107,6 +112,7 @@ func postSignInAs(db *sql.DB, kind string, signIn signInFn) http.HandlerFunc {
 			return
 		}
 		signInThrottle.clear(account)
+		signInThrottle.clear("ip:" + ip)
 		startOTP(w, r, db, kind, actorID, http.StatusOK, nil, "Gagal mengirim kode verifikasi ke email. Coba lagi.")
 	}
 }
@@ -226,9 +232,9 @@ func signInVendor(ctx context.Context, q dbx, identifier, password string) ([]by
 	if errors.Is(err, sql.ErrNoRows) || !sameSecret(stored, password) {
 		return nil, "", http.StatusUnauthorized, "Email, NPWP, atau password tidak cocok."
 	}
-	// Even a matching hash is rejected when the password is on the common list (seed leftovers).
+	// Matching hash on the common list: force a reset, but do not burn the guess budget (403).
 	if commonPasswords[strings.ToLower(password)] {
-		return nil, "", http.StatusUnauthorized, "Password ini sudah tidak diizinkan. Ganti password lewat staf Siloam."
+		return nil, "", http.StatusForbidden, "Password ini sudah tidak diizinkan. Ganti password lewat Lupa password."
 	}
 	var doc []byte
 	if err := q.QueryRowContext(ctx, `SELECT vendor_doc($1)`, id).Scan(&doc); err != nil {
@@ -275,7 +281,7 @@ func signInStaff(ctx context.Context, q dbx, identifier, password string) ([]byt
 		return nil, "", http.StatusUnauthorized, "Username, email, atau password tidak cocok."
 	}
 	if commonPasswords[strings.ToLower(password)] {
-		return nil, "", http.StatusUnauthorized, "Password ini sudah tidak diizinkan. Ganti password lewat staf Siloam."
+		return nil, "", http.StatusForbidden, "Password ini sudah tidak diizinkan. Ganti password lewat Lupa password."
 	}
 	var doc []byte
 	if err := q.QueryRowContext(ctx, `SELECT staff_doc($1)`, id).Scan(&doc); err != nil {

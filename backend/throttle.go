@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	failWindow     = 15 * time.Minute
-	maxFailsPerKey = 5
-	maxFailsPerIP  = 30
+	failWindow     = 10 * time.Minute
+	maxFailsPerKey = 25
+	maxFailsPerIP  = 200
 )
 
 // throttle counts failed sign-ins per account and per client IP inside a sliding window.
@@ -70,16 +70,21 @@ func (t *throttle) clear(account string) {
 	delete(t.fails, account)
 }
 
-// clientIP trusts X-Forwarded-For only from the local BFF, and takes the hop that proxy appended.
+// clientIP trusts forwarded headers only from the local BFF (loopback). Prefer X-Real-IP,
+// then the left-most X-Forwarded-For hop (original client). BFF sends a single client IP.
 func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr
 	}
 	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		if xri := strings.TrimSpace(r.Header.Get("X-Real-IP")); xri != "" {
+			if parsed := net.ParseIP(xri); parsed != nil {
+				return parsed.String()
+			}
+		}
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			parts := strings.Split(xff, ",")
-			return strings.TrimSpace(parts[len(parts)-1])
+			return strings.TrimSpace(strings.Split(xff, ",")[0])
 		}
 	}
 	return host

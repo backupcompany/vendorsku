@@ -40,10 +40,15 @@ app.use(express.json({ limit: '8mb' }));
 const goPort = process.env.GO_PORT || '8080';
 
 function clientIpOf(req: express.Request): string {
-  const socketIp = req.socket.remoteAddress ?? '';
-  const viaLocalProxy = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(socketIp);
-  const realIp = req.headers['x-real-ip'];
-  return viaLocalProxy && typeof realIp === 'string' && realIp ? realIp : socketIp;
+  const socketIp = (req.socket.remoteAddress ?? '').replace(/^::ffff:/, '');
+  const viaLocalProxy = socketIp === '127.0.0.1' || socketIp === '::1';
+  if (!viaLocalProxy) return socketIp;
+  const pick = (name: string) => {
+    const v = req.headers[name];
+    return typeof v === 'string' && v.trim() ? v.trim() : '';
+  };
+  // Caddy sets X-Real-IP from CF-Connecting-IP; also accept the CF header directly.
+  return pick('cf-connecting-ip') || pick('x-real-ip') || pick('x-forwarded-for').split(',')[0].trim() || socketIp;
 }
 
 // ponytail: in-memory AI quota per actor+IP; Redis if multi-instance matters.
@@ -73,6 +78,7 @@ function proxyGo(req: express.Request, res: express.Response) {
     host: `127.0.0.1:${goPort}`,
     'content-type': pick('content-type') || 'application/json',
     accept: pick('accept') || 'application/json',
+    'x-real-ip': clientIp,
     'x-forwarded-for': clientIp,
     'x-forwarded-proto': pick('x-forwarded-proto') || (req.secure ? 'https' : 'http'),
     'x-forwarded-host': fwdHost,

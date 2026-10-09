@@ -712,11 +712,12 @@ func TestEmailOTP(t *testing.T) {
 	if rec := verify(third, code); rec.Code != 410 {
 		t.Fatalf("burned challenge accepted right code: %d", rec.Code)
 	}
+	// Burned challenge must not lock password sign-in — user can request a fresh code.
 	req = httptest.NewRequest("POST", "/api/staff/sign-in", strings.NewReader(`{"identifier":"admin","password":"`+testSeedPassword+`"}`))
 	rec = httptest.NewRecorder()
 	postSignInAs(db, "staff", signInStaff)(rec, req)
-	if rec.Code != 429 {
-		t.Fatalf("account must cool down after too many wrong codes, got %d", rec.Code)
+	if rec.Code != 200 {
+		t.Fatalf("after burned OTP, password sign-in should issue a new code, got %d %s", rec.Code, rec.Body)
 	}
 }
 
