@@ -59,6 +59,8 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
   const [preview, setPreview] = useState<ProductMatchPreview[] | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
   const [minScore, setMinScore] = useState(40);
+  /** Suggested SKU picked to prefill the form; fields stay editable until link/save. */
+  const [pickedHit, setPickedHit] = useState<ProductSuggestHit | null>(null);
 
   const level1 = vendor.businessScope?.level1?.trim() || '';
 
@@ -156,11 +158,21 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
       setPartNumber('');
       setSpec('');
       setHits([]);
+      setPickedHit(null);
     } catch (err: any) {
       setError(err.message || 'Gagal menyimpan produk.');
     } finally {
       setSaving(false);
     }
+  };
+
+  /** Select a suggest card → sync form fields from master SKU; vendor can still edit before save/link. */
+  const applySuggestion = (hit: ProductSuggestHit) => {
+    setName(hit.commodityName);
+    setBrand((hit.brand || '').trim());
+    setPartNumber((hit.partNumber || '').trim());
+    setSpec(hit.generalSpec || '');
+    setPickedHit(hit);
   };
 
   const handleBulk = async () => {
@@ -211,6 +223,7 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
       setPartNumber('');
       setSpec('');
       setHits([]);
+      setPickedHit(null);
       onLinked(toSku(hit), linked);
     } catch (err: any) {
       setError(err.message || 'Gagal memasangkan SKU.');
@@ -312,16 +325,15 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
   );
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+    <div className="w-full max-w-3xl mx-auto space-y-4 pb-16">
+      <div className="border border-[#edebe9] bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-sm font-siloam font-bold text-[#0B2361] dark:text-blue-200 flex items-center gap-2">
-              <Package className="h-4 w-4" />
+            <h2 className="text-xl font-semibold text-[#0B2361] dark:text-white border-l-4 border-[#1B3F9B] pl-3">
               Produk Saya
             </h2>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              Ketik produk dagang → saran SKU RS dari master data (filter/ranking, tanpa AI) → tautkan atau ajukan baru.
+            <p className="mt-1 pl-4 text-sm text-slate-600 dark:text-slate-400">
+              Ketik nama produk → pilih saran SKU RS (isi form otomatis, tetap bisa diedit) → simpan / tautkan.
             </p>
           </div>
           <div className="flex gap-2 text-[10px] font-semibold shrink-0">
@@ -341,19 +353,70 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
             </label>
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (pickedHit) setPickedHit(null);
+              }}
               placeholder="Contoh: Onemed Kassa Hidrofil 40x80"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              className="w-full border border-[#a19f9d] bg-white px-2.5 py-1.5 text-sm focus:border-[#1B3F9B] focus:outline-none focus:ring-1 focus:ring-[#1B3F9B] dark:border-slate-600 dark:bg-slate-950 dark:text-white"
               required
               maxLength={200}
+              autoComplete="off"
             />
+
+            {(suggesting || hits.length > 0) && name.trim().length >= 2 && (
+              <div className="mt-1.5 border border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/30">
+                <div className="flex items-center justify-between px-2.5 py-1.5 text-[11px] font-semibold text-[#0B2361] dark:text-blue-200 border-b border-blue-100 dark:border-blue-900">
+                  <span>Saran SKU RS — klik untuk isi form</span>
+                  {suggesting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                </div>
+                <ul className="max-h-48 overflow-y-auto divide-y divide-blue-100 dark:divide-blue-900">
+                  {hits.map((hit) => {
+                    const selected = pickedHit?.id === hit.id;
+                    return (
+                      <li key={hit.id}>
+                        <button
+                          type="button"
+                          onClick={() => applySuggestion(hit)}
+                          className={`w-full text-left px-2.5 py-2 text-xs cursor-pointer hover:bg-white dark:hover:bg-slate-900 ${
+                            selected ? 'bg-white ring-1 ring-inset ring-[#1B3F9B] dark:bg-slate-900' : ''
+                          }`}
+                        >
+                          <div className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+                            {hit.commodityName}
+                            {selected && (
+                              <span className="ml-2 text-[10px] font-bold text-[#1B3F9B]">dipilih</span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-500 truncate">
+                            {hit.erpCode} · {hit.uom} · skor {hit.score}
+                            {hit.generalSpec ? ` · ${hit.generalSpec}` : ''}
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {!suggesting && hits.length === 0 && (
+                  <p className="px-2.5 py-2 text-[11px] text-slate-500">
+                    Tidak ada saran. Isi field di bawah lalu simpan, atau ajukan sebagai SKU baru.
+                  </p>
+                )}
+              </div>
+            )}
+            {pickedHit && (
+              <p className="mt-1 text-[11px] text-slate-500">
+                Terisi dari ERP <span className="font-mono font-semibold text-[#1B3F9B]">{pickedHit.erpCode}</span>
+                — field di bawah boleh diedit sebelum simpan/tautkan.
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">Brand / Merk</label>
             <input
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              className="w-full border border-[#a19f9d] bg-white px-2.5 py-1.5 text-sm focus:border-[#1B3F9B] focus:outline-none focus:ring-1 focus:ring-[#1B3F9B] dark:border-slate-600 dark:bg-slate-950 dark:text-white"
               maxLength={80}
             />
           </div>
@@ -362,7 +425,7 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
             <input
               value={partNumber}
               onChange={(e) => setPartNumber(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              className="w-full border border-[#a19f9d] bg-white px-2.5 py-1.5 text-sm focus:border-[#1B3F9B] focus:outline-none focus:ring-1 focus:ring-[#1B3F9B] dark:border-slate-600 dark:bg-slate-950 dark:text-white"
               maxLength={80}
             />
           </div>
@@ -371,54 +434,31 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
             <input
               value={spec}
               onChange={(e) => setSpec(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              className="w-full border border-[#a19f9d] bg-white px-2.5 py-1.5 text-sm focus:border-[#1B3F9B] focus:outline-none focus:ring-1 focus:ring-[#1B3F9B] dark:border-slate-600 dark:bg-slate-950 dark:text-white"
               maxLength={500}
             />
           </div>
-
-          {(suggesting || hits.length > 0) && name.trim().length >= 2 && (
-            <div className="sm:col-span-2 rounded-xl border border-blue-200 bg-blue-50/50 p-3 space-y-2 dark:border-blue-900 dark:bg-blue-950/30">
-              <div className="flex items-center justify-between text-[11px] font-semibold text-[#0B2361] dark:text-blue-200">
-                <span>Saran teratas (match data)</span>
-                {suggesting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              </div>
-              {hits.map((hit) => (
-                <div
-                  key={hit.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
-                >
-                  <div className="min-w-0">
-                    <div className="font-semibold text-slate-800 dark:text-slate-100 truncate">{hit.commodityName}</div>
-                    <div className="text-[10px] text-slate-500 truncate">
-                      {hit.erpCode} · {hit.generalSpec} · skor {hit.score}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={busyId === hit.id}
-                    onClick={() => handleSaveAndLink(hit)}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-[#1B3F9B] text-white text-[10px] font-bold px-2.5 py-1.5 disabled:opacity-50 cursor-pointer"
-                  >
-                    {busyId === hit.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2 className="h-3 w-3" />}
-                    Simpan & Tautkan
-                  </button>
-                </div>
-              ))}
-              {!suggesting && hits.length === 0 && (
-                <p className="text-[11px] text-slate-500">Tidak ada saran. Simpan produk lalu ajukan sebagai SKU baru.</p>
-              )}
-            </div>
-          )}
 
           <div className="sm:col-span-2 flex flex-wrap gap-2">
             <button
               type="submit"
               disabled={saving || !name.trim()}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B3F9B] hover:bg-[#15337E] disabled:opacity-50 text-white text-xs font-siloam font-bold px-4 py-2.5 cursor-pointer"
+              className="inline-flex items-center gap-1.5 bg-white border border-[#a19f9d] hover:bg-[#f3f2f1] disabled:opacity-50 text-slate-800 text-xs font-semibold px-4 py-2 cursor-pointer dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
               Simpan tanpa tautkan
             </button>
+            {pickedHit && (
+              <button
+                type="button"
+                disabled={busyId === pickedHit.id || !name.trim()}
+                onClick={() => void handleSaveAndLink(pickedHit)}
+                className="inline-flex items-center gap-1.5 bg-[#1B3F9B] hover:bg-[#15337E] disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 cursor-pointer"
+              >
+                {busyId === pickedHit.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                Simpan &amp; tautkan ke {pickedHit.erpCode}
+              </button>
+            )}
           </div>
         </form>
 
