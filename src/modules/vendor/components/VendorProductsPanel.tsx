@@ -8,6 +8,7 @@ import {
   fetchVendorProducts,
   linkVendorProduct,
   linkVendorProductsBatch,
+  patchVendorProduct,
   proposeSku,
   suggestProductSkus,
   unlinkVendorProduct,
@@ -75,8 +76,9 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
   const [preview, setPreview] = useState<ProductMatchPreview[] | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
   const [minScore, setMinScore] = useState(40);
-  /** Suggested SKU picked to prefill the form; fields stay editable until link/save. */
-  const [pickedHit, setPickedHit] = useState<ProductSuggestHit | null>(null);
+  /** After click-match: product stays open for edit; matchedSku is the linked master. */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [matchedSku, setMatchedSku] = useState<{ id: string; erpCode: string; commodityName: string } | null>(null);
 
   const level1 = vendor.businessScope?.level1?.trim() || '';
   const priceListN = Number(priceList) || 0;
@@ -100,6 +102,32 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
     priceValidUntil: priceValidUntil || undefined,
   });
 
+  const loadProductIntoForm = (p: VendorProduct) => {
+    setName(p.name);
+    setBrand(p.brand || '');
+    setPartNumber(p.partNumber || '');
+    setSpec(p.spec || '');
+    setUom(p.uom || p.linkedSku?.uom || '');
+    setIzinEdar(p.izinEdar || '');
+    setIzinEdarUntil(p.izinEdarUntil ? String(p.izinEdarUntil).slice(0, 10) : '');
+    setLkppPrice(p.lkppPrice ? String(p.lkppPrice) : '');
+    setLkppUrl(p.lkppUrl || '');
+    setPriceList(p.priceList ? String(p.priceList) : '');
+    setDiscountPct(String(p.discountPct ?? 0));
+    setMoq(String(p.moq ?? 1));
+    setLeadTimeDays(String(p.leadTimeDays ?? 7));
+    setPriceValidUntil(p.priceValidUntil ? String(p.priceValidUntil).slice(0, 10) : '2026-12-31');
+    setPhotoFile(null);
+    setHits([]);
+    setActiveId(p.id);
+    setEditingId(p.id);
+    setMatchedSku(
+      p.linkedSku
+        ? { id: p.linkedSku.id, erpCode: p.linkedSku.erpCode, commodityName: p.linkedSku.commodityName }
+        : null,
+    );
+  };
+
   const clearForm = () => {
     setName('');
     setBrand('');
@@ -117,7 +145,9 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
     setPriceValidUntil('2026-12-31');
     setPhotoFile(null);
     setHits([]);
-    setPickedHit(null);
+    setEditingId(null);
+    setMatchedSku(null);
+    setActiveId(null);
   };
 
   const reload = async () => {
@@ -201,15 +231,29 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
     setError('');
     setOkMsg('');
     try {
-      const created = await createVendorProduct(vendor.id, formBody());
-      if (photoFile) {
-        await uploadVendorProductPhoto(vendor.id, created.id, photoFile);
-        created.hasPhoto = true;
+      if (editingId) {
+        let updated = await patchVendorProduct(vendor.id, editingId, formBody());
+        if (photoFile) {
+          await uploadVendorProductPhoto(vendor.id, editingId, photoFile);
+          updated = { ...updated, hasPhoto: true };
+        }
+        setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+        loadProductIntoForm(updated);
+        setOkMsg(
+          matchedSku
+            ? `Perubahan disimpan (tetap match ${matchedSku.erpCode}).`
+            : 'Perubahan disimpan.',
+        );
+      } else {
+        const created = await createVendorProduct(vendor.id, formBody());
+        if (photoFile) {
+          await uploadVendorProductPhoto(vendor.id, created.id, photoFile);
+          created.hasPhoto = true;
+        }
+        setProducts((prev) => [created, ...prev]);
+        loadProductIntoForm(created);
+        setOkMsg('Produk disimpan (belum match). Klik saran untuk match ke SKU RS.');
       }
-      setProducts((prev) => [created, ...prev]);
-      setActiveId(created.id);
-      clearForm();
-      setOkMsg('Produk disimpan.');
     } catch (err: any) {
       setError(err.message || 'Gagal menyimpan produk.');
     } finally {
@@ -217,14 +261,55 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
     }
   };
 
-  /** Select a suggest card → sync form fields from master SKU; vendor can still edit before save/link. */
-  const applySuggestion = (hit: ProductSuggestHit) => {
-    setName(hit.commodityName);
-    setBrand((hit.brand || '').trim());
-    setPartNumber((hit.partNumber || '').trim());
-    setSpec(hit.generalSpec || '');
-    setUom(hit.uom || '');
-    setPickedHit(hit);
+  /**
+   * Click saran = langsung match ke master SKU di belakang,
+   * form tetap terisi dari data itu dan masih bisa diedit.
+   */
+  const matchFromSuggestion = async (hit: ProductSuggestHit) => {
+    setBusyId(hit.id);
+    setError('');
+    setOkMsg('');
+    const body: VendorProductBody = {
+      ...formBody(),
+      name: hit.commodityName,
+      brand: (hit.brand || brand).trim(),
+      partNumber: (hit.partNumber || partNumber).trim(),
+      spec: hit.generalSpec || spec.trim(),
+      uom: hit.uom || uom.trim(),
+    };
+    setName(body.name);
+    setBrand(body.brand || '');
+    setPartNumber(body.partNumber || '');
+    setSpec(body.spec || '');
+    setUom(body.uom || '');
+    try {
+      let product =
+        editingId && products.find((p) => p.id === editingId && !p.skuId)
+          ? products.find((p) => p.id === editingId)!
+          : null;
+      if (product) {
+        product = await patchVendorProduct(vendor.id, product.id, body);
+      } else {
+        product = await createVendorProduct(vendor.id, body);
+        if (photoFile) {
+          await uploadVendorProductPhoto(vendor.id, product.id, photoFile);
+          product = { ...product, hasPhoto: true };
+        }
+      }
+      const linked = await linkVendorProduct(vendor.id, product.id, hit.id);
+      setProducts((prev) => {
+        const without = prev.filter((p) => p.id !== linked.id);
+        return [linked, ...without];
+      });
+      loadProductIntoForm(linked);
+      setMatchedSku({ id: hit.id, erpCode: hit.erpCode, commodityName: hit.commodityName });
+      setOkMsg(`Match ke ${hit.erpCode}. Data master terisi — boleh diubah di form lalu Simpan.`);
+      onLinked(toSku(hit), linked);
+    } catch (err: any) {
+      setError(err.message || 'Gagal memasangkan SKU.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const handleBulk = async () => {
@@ -250,43 +335,6 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
     }
   };
 
-  const handleSaveAndLink = async (hit: ProductSuggestHit) => {
-    setBusyId(hit.id);
-    setError('');
-    try {
-      let product = products.find((p) => p.id === activeId && !p.skuId);
-      if (!product) {
-        product = await createVendorProduct(vendor.id, {
-          ...formBody(),
-          name: name.trim() || hit.commodityName,
-          uom: uom.trim() || hit.uom,
-        });
-        if (photoFile) {
-          await uploadVendorProductPhoto(vendor.id, product.id, photoFile);
-          product = { ...product, hasPhoto: true };
-        }
-        setProducts((prev) => [product!, ...prev]);
-      }
-      const linked = await linkVendorProduct(vendor.id, product.id, hit.id);
-      setProducts((prev) => {
-        const without = prev.filter((p) => p.id !== linked.id);
-        return [linked, ...without];
-      });
-      setActiveId(linked.id);
-      clearForm();
-      setOkMsg(
-        linked.priceList > 0
-          ? `Taut ke ${hit.erpCode} — harga ikut tersimpan ke penawaran.`
-          : `Taut ke ${hit.erpCode}.`,
-      );
-      onLinked(toSku(hit), linked);
-    } catch (err: any) {
-      setError(err.message || 'Gagal memasangkan SKU.');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
   const handleLink = async (product: VendorProduct, hit: ProductSuggestHit) => {
     setBusyId(hit.id);
     setError('');
@@ -308,7 +356,13 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
     try {
       const updated = await unlinkVendorProduct(vendor.id, product.id);
       setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-      setActiveId(updated.id);
+      if (editingId === product.id) {
+        loadProductIntoForm(updated);
+        setMatchedSku(null);
+        setOkMsg('Pairing dilepas. Klik saran lain untuk match ulang.');
+      } else {
+        setActiveId(updated.id);
+      }
     } catch (err: any) {
       setError(err.message || 'Gagal melepas pairing.');
     } finally {
@@ -421,7 +475,7 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
             Produk Saya
           </h2>
           <p className="mt-1 pl-4 text-sm text-slate-600 dark:text-slate-400">
-            Ketik nama → pilih saran SKU RS (isi form otomatis, tetap bisa diedit) → isi harga → simpan / tautkan.
+            Ketik nama → klik saran = langsung match ke master SKU → field terisi, tetap bisa diedit → Simpan.
           </p>
         </div>
 
@@ -432,10 +486,7 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
             </label>
             <input
               value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (pickedHit) setPickedHit(null);
-              }}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Contoh: Onemed Kassa Hidrofil 40x80"
               className={fieldCls}
               required
@@ -443,46 +494,59 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
               autoComplete="off"
             />
 
-            {(suggesting || hits.length > 0) && name.trim().length >= 2 && (
+            {!matchedSku && (suggesting || hits.length > 0) && name.trim().length >= 2 && (
               <div className="mt-1.5 border border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/30">
                 <div className="flex items-center justify-between px-2.5 py-1.5 text-[11px] font-semibold text-[#0B2361] dark:text-blue-200 border-b border-blue-100 dark:border-blue-900">
-                  <span>Saran SKU RS — klik untuk isi form</span>
-                  {suggesting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>Saran SKU RS — klik = langsung match</span>
+                  {(suggesting || busyId) && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 </div>
                 <ul className="max-h-48 overflow-y-auto divide-y divide-blue-100 dark:divide-blue-900">
-                  {hits.map((hit) => {
-                    const selected = pickedHit?.id === hit.id;
-                    return (
-                      <li key={hit.id}>
-                        <button
-                          type="button"
-                          onClick={() => applySuggestion(hit)}
-                          className={`w-full text-left px-2.5 py-2 text-xs cursor-pointer hover:bg-white dark:hover:bg-slate-900 ${
-                            selected ? 'bg-white ring-1 ring-inset ring-[#1B3F9B] dark:bg-slate-900' : ''
-                          }`}
-                        >
-                          <div className="font-semibold text-slate-800 dark:text-slate-100 truncate">
-                            {hit.commodityName}
-                            {selected && (
-                              <span className="ml-2 text-[10px] font-bold text-[#1B3F9B]">dipilih · skor {hit.score}</span>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-slate-500 truncate">
-                            {hit.erpCode} · {hit.uom} · skor {hit.score}
-                            {hit.generalSpec ? ` · ${hit.generalSpec}` : ''}
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
+                  {hits.map((hit) => (
+                    <li key={hit.id}>
+                      <button
+                        type="button"
+                        disabled={!!busyId}
+                        onClick={() => void matchFromSuggestion(hit)}
+                        className={`w-full text-left px-2.5 py-2 text-xs cursor-pointer hover:bg-white dark:hover:bg-slate-900 disabled:opacity-60 ${
+                          busyId === hit.id ? 'bg-white ring-1 ring-inset ring-[#1B3F9B] dark:bg-slate-900' : ''
+                        }`}
+                      >
+                        <div className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+                          {hit.commodityName}
+                          {busyId === hit.id && (
+                            <span className="ml-2 text-[10px] font-bold text-[#1B3F9B]">matching…</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-500 truncate">
+                          {hit.erpCode} · {hit.uom} · skor {hit.score}
+                          {hit.generalSpec ? ` · ${hit.generalSpec}` : ''}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
-            {pickedHit && (
-              <p className="mt-1 text-[11px] text-slate-500">
-                Terisi dari ERP <span className="font-mono font-semibold text-[#1B3F9B]">{pickedHit.erpCode}</span>
-                — field di bawah boleh diedit sebelum simpan/tautkan.
-              </p>
+            {matchedSku && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 border border-emerald-300 bg-emerald-50 px-2.5 py-2 text-[11px] text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                <Link2 className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Match <span className="font-mono font-bold">{matchedSku.erpCode}</span> — {matchedSku.commodityName}.
+                  Field di bawah dari master, boleh diubah.
+                </span>
+                <button
+                  type="button"
+                  className="ml-auto text-[#1B3F9B] font-semibold hover:underline cursor-pointer disabled:opacity-50"
+                  disabled={!!busyId}
+                  onClick={() => {
+                    const p = editingId ? products.find((x) => x.id === editingId) : null;
+                    if (p?.skuId) void handleUnlink(p).then(() => setMatchedSku(null));
+                    else setMatchedSku(null);
+                  }}
+                >
+                  Ganti match
+                </button>
+              </div>
             )}
           </div>
           <div>
@@ -499,7 +563,7 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
           </div>
           <div>
             <label className="block text-xs font-semibold text-[#0B2361] dark:text-slate-200 mb-1">
-              Satuan jual (UOM){pickedHit ? ' · dari SKU RS' : ''}
+              Satuan jual (UOM){matchedSku ? ' · dari SKU RS' : ''}
             </label>
             <input
               value={uom}
@@ -609,20 +673,18 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
             <button
               type="submit"
               disabled={saving || !name.trim()}
-              className="inline-flex items-center gap-1.5 bg-white border border-[#a19f9d] hover:bg-[#f3f2f1] disabled:opacity-50 text-slate-800 text-xs font-semibold px-4 py-2 cursor-pointer dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className="inline-flex items-center gap-1.5 bg-[#1B3F9B] hover:bg-[#15337E] disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 cursor-pointer"
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              Simpan tanpa tautkan
+              {editingId ? 'Simpan perubahan' : 'Simpan tanpa match'}
             </button>
-            {pickedHit && (
+            {editingId && (
               <button
                 type="button"
-                disabled={busyId === pickedHit.id || !name.trim()}
-                onClick={() => void handleSaveAndLink(pickedHit)}
-                className="inline-flex items-center gap-1.5 bg-[#1B3F9B] hover:bg-[#15337E] disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 cursor-pointer"
+                onClick={() => clearForm()}
+                className="inline-flex items-center gap-1.5 border border-[#a19f9d] bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-[#f3f2f1] cursor-pointer dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
               >
-                {busyId === pickedHit.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
-                Simpan &amp; tautkan ke {pickedHit.erpCode}
+                Produk baru
               </button>
             )}
           </div>
@@ -795,7 +857,14 @@ export const VendorProductsPanel: React.FC<Props> = ({ vendor, onLinked, onPrice
               <li key={p.id} className="px-4 py-3 flex items-start justify-between gap-3 text-xs">
                 <button
                   type="button"
-                  onClick={() => setActiveId(p.id)}
+                  onClick={() => {
+                    loadProductIntoForm(p);
+                    setOkMsg(
+                      p.linkedSku
+                        ? `Mengedit ${p.linkedSku.erpCode} — field boleh diubah.`
+                        : 'Mengedit produk belum match.',
+                    );
+                  }}
                   className="text-left min-w-0 flex-1 cursor-pointer"
                 >
                   <div className="flex items-start gap-2">
